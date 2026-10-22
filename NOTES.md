@@ -182,9 +182,9 @@ XSessionSearch ни разу не вызван (хост его не делае�
 - `orcsteam.ini` читается всеми модулями (`OrcsteamIniInt/String` в core.cpp).
 - `lobby=friends` (по умолчанию выключено): хостовое лобби создаётся как FriendsOnly — в RequestLobbyList его
   не видно никому, вход только по приглашению / «Присоединиться». Тест: поиск такого лобби не находит.
-- Rich presence (ISteamFriends009::SetRichPresence, метод 34): `status` — «In the online menu» / «In an online lobby» /
-  «On a mission (N players)»; `steam_player_group` = id лобби, `steam_player_group_size`. Без токенов локализации
-  издателя Steam показывает status только в «Посмотреть информацию об игре»; группировка в списке друзей работает.
+- Rich presence (ISteamFriends009::SetRichPresence, метод 34): только `steam_player_group` = id лобби и
+  `steam_player_group_size` — игроки одного лобби группируются в списке друзей. Текстовый `status` убран:
+  без токенов локализации издателя Steam показывает его лишь в «Посмотреть информацию об игре».
 - Безопасность сетевого приёма (принимать P2P только от своих) отложена по решению автора: аудитория маленькая.
 
 ## Архитектура

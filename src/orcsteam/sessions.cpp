@@ -110,49 +110,34 @@ static int HostedLobbyType() {
     return _stricmp(value, "friends") == 0 ? kLobbyFriendsOnly : kLobbyPublic;
 }
 
-// Steam rich presence from the session state. Without the publisher's localization tokens Steam shows
-// "status" in the friend's "View game info" dialog; the player group keeps lobby mates together in
-// the friends list. Must be called without g_lock held.
+// Steam rich presence: players in the same lobby are grouped together in the Steam friends list.
+// (A "status" text would only show in the friend's "View game info" dialog without the publisher's
+// localization tokens, so it is not set.) Must be called without g_lock held.
 static void UpdatePresence() {
-    static char lastStatus[64], lastGroup[24], lastSize[8];
+    static char lastGroup[24], lastSize[8];
     const SteamApi* steam = Steam();
     if (!steam) return;
-    bool party = false, match = false, started = false;
     uint64 group = 0;
     int players = 0;
     AcquireSRWLockShared(&g_lock);
     for (Session& s : g_sessions) {
-        if (!s.handle) continue;
-        if (!(s.flags & kCreateUsesMatchmaking)) {
-            party = true;
-            continue;
-        }
-        match = true;
-        started |= s.started;
+        if (!s.handle || !(s.flags & kCreateUsesMatchmaking)) continue;
         if (s.lobby) group = s.lobby;
         if (s.memberCount > players) players = s.memberCount;
     }
     ReleaseSRWLockShared(&g_lock);
 
-    char status[64] = "", groupText[24] = "", size[8] = "";
-    if (started && players > 1) sprintf_s(status, "On a mission (%d players)", players);
-    else if (started) strcpy_s(status, "On a mission");
-    else if (match) strcpy_s(status, "In an online lobby");
-    else if (party) strcpy_s(status, "In the online menu");
+    char groupText[24] = "", size[8] = "";
     if (group) {  // we are in a Steam lobby: group with its other members (we count at least ourselves)
         sprintf_s(groupText, "%016llX", group);
         sprintf_s(size, "%d", players > 1 ? players : 1);
     }
-    if (strcmp(status, lastStatus)) {
-        steam->friends->SetRichPresence("status", status);  // empty value removes the key
-        strcpy_s(lastStatus, status);
-        OverrideLog("presence: '%s'", status);
-    }
     if (strcmp(groupText, lastGroup) || strcmp(size, lastSize)) {
-        steam->friends->SetRichPresence("steam_player_group", groupText);
+        steam->friends->SetRichPresence("steam_player_group", groupText);  // empty value removes the key
         steam->friends->SetRichPresence("steam_player_group_size", size);
         strcpy_s(lastGroup, groupText);
         strcpy_s(lastSize, size);
+        OverrideLog("presence: player group '%s', size %s", groupText, size[0] ? size : "-");
     }
 }
 

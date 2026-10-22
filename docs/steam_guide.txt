@@ -116,7 +116,7 @@ lobby=friends
 [/code]
 Then games you host are visible only to Steam friends and people you invite (not in anyone's in-game search). Friends join with an invite or "Join game". By default games are public.
 
-Steam friends also see what you are doing in [b]View game info[/b] (online menu, lobby, mission), and players of the same game are grouped together in the friends list.
+Players of the same game are grouped together in the Steam friends list.
 
 [hr][/hr]
 
@@ -136,7 +136,7 @@ lobby=friends
 [/code]
 Тогда игры, которые вы создаёте, видны только друзьям в Steam и тем, кого вы пригласили (в поиске внутри игры их не видно никому). Друзья входят по приглашению или через «Присоединиться к игре». По умолчанию игры публичные.
 
-Друзья в Steam также видят, чем вы заняты, в [b]«Посмотреть информацию об игре»[/b] (сетевое меню, лобби, задание), а игроки одной игры показываются в списке друзей вместе.
+Игроки одной игры показываются в списке друзей Steam вместе, одной группой.
 
 
 #### ===== SECTION 5 TITLE =====

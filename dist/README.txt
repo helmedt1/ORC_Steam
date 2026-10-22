@@ -28,8 +28,7 @@ PLAYING
   Friends accept the invite, or right-click the host in their friends list -> Join game.
   If a friend's game is not running, Steam starts it and joins about 20 s after launch.
 - If the host leaves, another player becomes the host and the game goes on.
-- Steam friends see what you are doing in "View game info" (online menu, lobby,
-  mission), and players of the same game are grouped together in the friends list.
+- Players of the same game are grouped together in the Steam friends list.
 
 
 SETTINGS (optional)

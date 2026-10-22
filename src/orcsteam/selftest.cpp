@@ -187,7 +187,7 @@ static int TestSteam(HMODULE proxy) {
     ((FnCreate)Ord(proxy, 5300))(0x2D, 0, 4, 0, &nonce, sinfo, nullptr, &session);
     PumpFor(4000);
 
-    // Rich presence: hosting a matchmaking session shows "In an online lobby" and a player group.
+    // Rich presence: hosting a matchmaking session sets a player group (and no status text).
     typedef void* (__cdecl * Getter)();
     ISteamFriends009* friends = (ISteamFriends009*)((Getter)GetProcAddress(api, "SteamFriends"))();
     ISteamUser016* user = (ISteamUser016*)((Getter)GetProcAddress(api, "SteamUser"))();
@@ -195,7 +195,7 @@ static int TestSteam(HMODULE proxy) {
     const char* status = friends->GetFriendRichPresence(me, "status");
     const char* group = friends->GetFriendRichPresence(me, "steam_player_group");
     printf("steam: presence status '%s', group '%s'\n", status, group);
-    if (strcmp(status, "In an online lobby") || !group[0]) nameFails++;  // counted with the other early checks
+    if (status[0] || !group[0]) nameFails++;  // counted with the other early checks
 
     struct { ULONG_PTR low, high, ctx; HANDLE ev; void* routine; DWORD_PTR cctx; DWORD ext; } ov = {};
     ov.ev = CreateEventA(nullptr, TRUE, FALSE, nullptr);
@@ -228,9 +228,9 @@ static int TestSteam(HMODULE proxy) {
     typedef BOOL(WINAPI * FnCloseH)(HANDLE);
     ((FnCloseH)Ord(proxy, 5251))(session);
     PumpFor(500);
-    status = friends->GetFriendRichPresence(me, "status");
-    printf("steam: presence after close '%s'\n", status);
-    if (status[0]) fails++;
+    group = friends->GetFriendRichPresence(me, "steam_player_group");
+    printf("steam: player group after close '%s'\n", group);
+    if (group[0]) fails++;
 
     // lobby=friends: the hosted lobby must not be listed by a search (it is friends/invite only).
     WritePrivateProfileStringA("orcsteam", "lobby", "friends", ".\\orcsteam.ini");
