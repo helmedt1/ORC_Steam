@@ -1,0 +1,217 @@
+STEAM GUIDE — orcsteam (EN + RU)
+Paste each block into the matching field of the guide editor (Steam -> Community -> Guides -> Create Your Guide).
+Lines starting with "####" are instructions for you, not part of the guide.
+
+
+#### ===== GUIDE TITLE =====
+Online Co-op Is Back (via Steam) / Онлайн-кооп снова работает (через Steam)
+
+#### ===== GUIDE DESCRIPTION =====
+Games for Windows Live is gone, and with it the online modes of the PC version. orcsteam brings them back through Steam: lobbies, invites, "Join game", no port forwarding. Installation, playing with friends, troubleshooting. / GFWL закрыт, а вместе с ним пропали сетевые режимы PC-версии. orcsteam возвращает их через Steam: лобби, приглашения, «Присоединиться к игре», без проброса портов. Установка, игра с друзьями, решение проблем.
+
+#### ===== CATEGORIES (tick in the editor) =====
+#### Multiplayer, Modding or Configuration. Guide language: English.
+
+
+#### ===== SECTION 1 TITLE =====
+About orcsteam / О моде
+
+#### ===== SECTION 1 CONTENT =====
+[h2]English[/h2]
+The PC version of Operation Raccoon City was built on [b]Games for Windows Live[/b], which no longer works, so its online modes are dead. [b]orcsteam[/b] is a replacement [i]xlive.dll[/i] that gives them back through [b]Steam[/b]:
+[list]
+[*]sign-in uses your Steam account and Steam name;
+[*]online games are Steam lobbies: create and search for games in the game's own menus;
+[*]invite Steam friends or use "Join game" from the friends list;
+[*]game traffic goes over Steam's peer-to-peer network: [b]no port forwarding[/b], works behind any router;
+[*]if the host leaves, another player becomes the host and the game goes on.
+[/list]
+It is free and open source.
+
+[hr][/hr]
+
+[h2]Русский[/h2]
+PC-версия Operation Raccoon City работала через [b]Games for Windows Live[/b]. Его больше нет, поэтому сетевые режимы игры не работают. [b]orcsteam[/b] — это замена файла [i]xlive.dll[/i], которая возвращает их через [b]Steam[/b]:
+[list]
+[*]вход по вашему аккаунту и нику Steam;
+[*]сетевые игры — это лобби Steam: создавайте и ищите игры в меню самой игры;
+[*]приглашайте друзей из Steam или жмите «Присоединиться к игре» в списке друзей;
+[*]игровые данные идут через P2P-сеть Steam: [b]открывать порты не нужно[/b], работает за любым роутером;
+[*]если хост вышел, хостом становится другой игрок, и игра продолжается.
+[/list]
+Мод бесплатный, исходный код открыт.
+
+
+#### ===== SECTION 2 TITLE =====
+Download & Install / Скачать и установить
+
+#### ===== SECTION 2 CONTENT =====
+[h2]English[/h2]
+[b]Every player[/b] needs their own copy of the game on Steam and orcsteam installed.
+
+[b]Download:[/b] [url=https://github.com/helmedt1/ORC_Steam/releases/latest]github.com/helmedt1/ORC_Steam/releases/latest[/url] → [i]orcsteam-1.0.zip[/i] under "Assets".
+
+[olist]
+[*]In Steam: [b]Library → Resident Evil: Operation Raccoon City → right-click → Manage → Browse local files[/b]. The folder with [i]RaccoonCity.exe[/i] opens.
+[*]Copy [i]install.bat[/i], [i]uninstall.bat[/i] and the [i]orcsteam[/i] folder from the zip into that folder.
+[*]Run [b]install.bat[/b]. It saves your current [i]xlive.dll[/i] as a backup and puts orcsteam in its place.
+[/olist]
+Your saves are not touched: they keep working with orcsteam.
+
+[hr][/hr]
+
+[h2]Русский[/h2]
+Мод нужен [b]каждому игроку[/b], и у каждого должна быть своя копия игры в Steam.
+
+[b]Скачать:[/b] [url=https://github.com/helmedt1/ORC_Steam/releases/latest]github.com/helmedt1/ORC_Steam/releases/latest[/url] → файл [i]orcsteam-1.0.zip[/i] в разделе «Assets».
+
+[olist]
+[*]В Steam: [b]Библиотека → Resident Evil: Operation Raccoon City → правой кнопкой → Управление → Просмотреть локальные файлы[/b]. Откроется папка с [i]RaccoonCity.exe[/i].
+[*]Скопируйте туда из архива [i]install.bat[/i], [i]uninstall.bat[/i] и папку [i]orcsteam[/i].
+[*]Запустите [b]install.bat[/b]. Он сохранит текущий [i]xlive.dll[/i] в резервную копию и поставит orcsteam.
+[/olist]
+Сохранения не затрагиваются и продолжают работать.
+
+
+#### ===== SECTION 3 TITLE =====
+Playing Online / Сетевая игра
+
+#### ===== SECTION 3 CONTENT =====
+[h2]English[/h2]
+[list]
+[*]Start the game [b]from Steam[/b] (Steam must be running).
+[*]Your Steam name is your in-game name. The game font is Latin-only, so Cyrillic and other letters are transliterated (for example "Иван" → "Ivan").
+[*][b]Host:[/b] create an online game in the game's menu as usual.
+[*][b]Others:[/b] search for an online game [b]with the same mode[/b] and join it. The search only shows games with matching settings.
+[/list]
+
+[hr][/hr]
+
+[h2]Русский[/h2]
+[list]
+[*]Запускайте игру [b]через Steam[/b] (Steam должен быть включён).
+[*]Ваш ник в Steam становится ником в игре. Шрифт игры только латинский, поэтому кириллица переводится в латиницу (например, «Иван» → «Ivan»).
+[*][b]Хост:[/b] создаёт сетевую игру в меню игры, как обычно.
+[*][b]Остальные:[/b] ищут сетевую игру [b]с тем же режимом[/b] и входят в неё. Поиск показывает только игры с совпадающими настройками.
+[/list]
+
+
+#### ===== SECTION 4 TITLE =====
+Playing With Steam Friends / Игра с друзьями из Steam
+
+#### ===== SECTION 4 CONTENT =====
+[h2]English[/h2]
+You need to be Steam friends.
+[olist]
+[*][b]Host:[/b] create an online game and wait in the lobby.
+[*][b]Host:[/b] press [b]Shift+Tab[/b] → friends list → right-click a friend → [b]Invite to game[/b].
+[*][b]Friend:[/b] accept the invite, [b]or[/b] right-click the host in the Steam friends list → [b]Join game[/b].
+[/olist]
+If the friend's game is not running, Steam starts it; joining happens about [b]20 seconds[/b] after the game starts.
+
+[b]Only friends?[/b] Create [i]orcsteam.ini[/i] next to [i]xlive.dll[/i] with:
+[code]
+[orcsteam]
+lobby=friends
+[/code]
+Then games you host are visible only to Steam friends and people you invite (not in anyone's in-game search). Friends join with an invite or "Join game". By default games are public.
+
+Steam friends also see what you are doing in [b]View game info[/b] (online menu, lobby, mission), and players of the same game are grouped together in the friends list.
+
+[hr][/hr]
+
+[h2]Русский[/h2]
+Нужно быть друзьями в Steam.
+[olist]
+[*][b]Хост:[/b] создаёт сетевую игру и ждёт в лобби.
+[*][b]Хост:[/b] [b]Shift+Tab[/b] → список друзей → правой кнопкой по другу → [b]«Пригласить в игру»[/b].
+[*][b]Друг:[/b] принимает приглашение [b]или[/b] в списке друзей Steam жмёт правой кнопкой по хосту → [b]«Присоединиться к игре»[/b].
+[/olist]
+Если игра у друга не запущена, Steam запустит её сам, а вход произойдёт примерно через [b]20 секунд[/b] после запуска.
+
+[b]Только для друзей?[/b] Создайте рядом с [i]xlive.dll[/i] файл [i]orcsteam.ini[/i] с текстом:
+[code]
+[orcsteam]
+lobby=friends
+[/code]
+Тогда игры, которые вы создаёте, видны только друзьям в Steam и тем, кого вы пригласили (в поиске внутри игры их не видно никому). Друзья входят по приглашению или через «Присоединиться к игре». По умолчанию игры публичные.
+
+Друзья в Steam также видят, чем вы заняты, в [b]«Посмотреть информацию об игре»[/b] (сетевое меню, лобби, задание), а игроки одной игры показываются в списке друзей вместе.
+
+
+#### ===== SECTION 5 TITLE =====
+What Works / Что работает
+
+#### ===== SECTION 5 CONTENT =====
+[h2]English[/h2]
+[b]Tested:[/b] 2-player co-op campaign: search, invites, "Join game", starting the game from an invite, host migration.
+[b]Not tested yet:[/b] 3–4 players, versus modes. Reports are welcome!
+[b]Not supported:[/b] voice chat, leaderboards, achievements (the old service is gone, nothing is sent anywhere).
+
+[hr][/hr]
+
+[h2]Русский[/h2]
+[b]Проверено:[/b] кооперативная кампания вдвоём: поиск, приглашения, «Присоединиться к игре», запуск игры из приглашения, смена хоста.
+[b]Пока не проверено:[/b] 3–4 игрока, режимы против игроков. Будем рады отчётам!
+[b]Не поддерживается:[/b] голосовой чат, таблицы рекордов, достижения (старого сервиса нет, ничего никуда не отправляется).
+
+
+#### ===== SECTION 6 TITLE =====
+Troubleshooting / Если что-то не так
+
+#### ===== SECTION 6 CONTENT =====
+[h2]English[/h2]
+[list]
+[*]Make sure [b]every player[/b] has orcsteam installed and starts the game from Steam.
+[*]The game folder contains [b]orcsteam.log[/b]: it shows what happened. Attach it when you report a problem (see the last section). Send it [i]before[/i] starting the game again: it is rewritten on every start.
+[*]For a detailed log, create a file [b]orcsteam.ini[/b] next to [i]xlive.dll[/i] with:
+[code]
+[orcsteam]
+trace=1
+[/code]
+The log gets large, so delete the file afterwards.
+[*]Some antivirus programs distrust unknown DLLs. orcsteam only talks to Steam, and its source code is public.
+[/list]
+
+[hr][/hr]
+
+[h2]Русский[/h2]
+[list]
+[*]Убедитесь, что orcsteam стоит [b]у каждого игрока[/b] и все запускают игру через Steam.
+[*]В папке игры есть файл [b]orcsteam.log[/b], в нём видно, что произошло. Прикладывайте его к сообщению о проблеме (см. последний раздел). Отправьте его [i]до[/i] следующего запуска игры: при каждом запуске он перезаписывается.
+[*]Подробный лог: создайте рядом с [i]xlive.dll[/i] файл [b]orcsteam.ini[/b] с текстом:
+[code]
+[orcsteam]
+trace=1
+[/code]
+Лог станет большим, поэтому потом удалите этот файл.
+[*]Некоторые антивирусы не доверяют незнакомым DLL. orcsteam общается только со Steam, его исходный код открыт.
+[/list]
+
+
+#### ===== SECTION 7 TITLE =====
+Uninstall / Удаление
+
+#### ===== SECTION 7 CONTENT =====
+[h2]English[/h2]
+Run [b]uninstall.bat[/b] in the game folder: it puts your original [i]xlive.dll[/i] back. [b]Verify integrity of game files[/b] in Steam also restores the original files.
+
+[hr][/hr]
+
+[h2]Русский[/h2]
+Запустите [b]uninstall.bat[/b] в папке игры: он вернёт исходный [i]xlive.dll[/i]. [b]Проверка целостности файлов[/b] в Steam тоже вернёт исходные файлы.
+
+
+#### ===== SECTION 8 TITLE =====
+Source Code & Feedback / Исходный код и обратная связь
+
+#### ===== SECTION 8 CONTENT =====
+[h2]English[/h2]
+Source code (MIT license): [url=https://github.com/helmedt1/ORC_Steam]github.com/helmedt1/ORC_Steam[/url]
+Found a bug or tested versus / 3–4 players? Leave a comment under this guide or open an issue on GitHub, and attach [b]orcsteam.log[/b] from everyone who played.
+
+[hr][/hr]
+
+[h2]Русский[/h2]
+Исходный код (лицензия MIT): [url=https://github.com/helmedt1/ORC_Steam]github.com/helmedt1/ORC_Steam[/url]
+Нашли ошибку или проверили режим против игроков / игру втроём-вчетвером? Напишите в комментариях к руководству или создайте issue на GitHub и приложите [b]orcsteam.log[/b] от всех, кто играл.

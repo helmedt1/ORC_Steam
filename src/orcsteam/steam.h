@@ -58,6 +58,18 @@ public:
     virtual void ActivateGameOverlayToStore(DWORD) = 0;
     virtual void SetPlayedWith(CSteamID id) = 0;                                                 // 23
     virtual void ActivateGameOverlayInviteDialog(CSteamID lobby) = 0;                            // 24
+    virtual int GetSmallFriendAvatar(CSteamID) = 0;
+    virtual int GetMediumFriendAvatar(CSteamID) = 0;
+    virtual int GetLargeFriendAvatar(CSteamID) = 0;
+    virtual bool RequestUserInformation(CSteamID, bool) = 0;
+    virtual SteamAPICall_t RequestClanOfficerList(CSteamID) = 0;
+    virtual CSteamID GetClanOwner(CSteamID) = 0;
+    virtual int GetClanOfficerCount(CSteamID) = 0;
+    virtual CSteamID GetClanOfficerByIndex(CSteamID, int) = 0;
+    virtual int GetUserRestrictions() = 0;
+    virtual bool SetRichPresence(const char* key, const char* value) = 0;                       // 34
+    virtual void ClearRichPresence() = 0;                                                        // 35
+    virtual const char* GetFriendRichPresence(CSteamID id, const char* key) = 0;                 // 36
 };
 
 // Mirrors CCallbackBase of the 2012 SDK; MSVC lays out the overloaded Run()s the same way Valve's build does.
@@ -71,7 +83,7 @@ public:
     int m_iCallback;
 };
 
-enum { kLobbyPublic = 2 };
+enum { kLobbyFriendsOnly = 1, kLobbyPublic = 2 };
 enum { kLobbyCompareEqual = 0 };
 enum { kLobbyDistanceWorldwide = 3 };
 

@@ -12,7 +12,7 @@
 #include "names.h"
 #include "overrides.h"
 
-static const char kVersion[] = "1.0";
+static const char kVersion[] = "1.1";
 static const LONG kVerboseCalls = 40;  // traced lines per ordinal, then only counted
 static const int kMaxDepth = 64;       // per-thread nesting of traced calls
 static const DWORD kSummaryEveryMs = 15000;
@@ -251,13 +251,22 @@ extern "C" __declspec(dllexport) DWORD __cdecl OrcsteamTargetRva(unsigned ord) {
     return (DWORD)((BYTE*)g_byOrd[ord]->target - (BYTE*)self);
 }
 
-static bool TraceRequested(HMODULE self) {
+// ---- settings: [orcsteam] section of orcsteam.ini next to the DLL (optional file) ----
+
+static char g_iniPath[MAX_PATH];
+
+int OrcsteamIniInt(const char* key, int fallback) {
+    return GetPrivateProfileIntA("orcsteam", key, fallback, g_iniPath);
+}
+
+void OrcsteamIniString(const char* key, const char* fallback, char* out, unsigned long cap) {
+    GetPrivateProfileStringA("orcsteam", key, fallback, out, cap, g_iniPath);
+}
+
+static bool TraceRequested() {
     char value[8];
     if (GetEnvironmentVariableA("ORCSTEAM_TRACE", value, sizeof(value)) && value[0] == '1') return true;
-    char ini[MAX_PATH];
-    ModuleDir(self, ini, MAX_PATH);
-    strcat_s(ini, "orcsteam.ini");
-    return GetPrivateProfileIntA("orcsteam", "trace", 0, ini) == 1;
+    return OrcsteamIniInt("trace", 0) == 1;
 }
 
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
@@ -267,7 +276,9 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         QueryPerformanceFrequency(&g_freq);
         QueryPerformanceCounter(&g_t0);
         g_lastSummary = (LONG)GetTickCount();
-        g_trace = TraceRequested(inst);
+        ModuleDir(inst, g_iniPath, MAX_PATH);
+        strcat_s(g_iniPath, "orcsteam.ini");
+        g_trace = TraceRequested();
 
         for (OrdInfo& oi : g_ords) {
             oi.name = "?";

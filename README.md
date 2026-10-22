@@ -12,13 +12,15 @@ every GFWL function the game imports (82 of them) and backs the online ones with
 | Game invites, joining friends | Steam overlay invites, "Join game" in the friends list, `+connect_lobby` |
 | Secure network (XNet, VDP sockets) | Virtual 10.x.y.z addresses mapped to Steam IDs; datagrams over Steam P2P (relay, no port forwarding) |
 | Host migration | Works: the new host republishes the lobby |
+| Presence | Steam rich presence: status in "View game info", lobby mates grouped in the friends list |
+| Lobby privacy | Public by default; `lobby=friends` in `orcsteam.ini` makes hosted games friends/invite-only |
 | Saves (`XLiveProtectData`) | Stored as-is, byte-compatible with the community stub used so far |
 | Voice, leaderboards, achievements | Accepted and dropped |
 
 Players see this as: install, start the game from Steam, create or find an online game, or invite Steam friends.
 User instructions: [`dist/README.txt`](dist/README.txt) (English), [`dist/ПРОЧТИ.txt`](dist/ПРОЧТИ.txt) (Russian).
 
-**Status (1.0):** two-player co-op campaign tested end to end (search, invites, join from the friends list,
+**Status (1.1):** two-player co-op campaign tested end to end (search, invites, join from the friends list,
 start from an invite, host migration). Not tested yet: 3-4 players, versus modes.
 
 ## How it works

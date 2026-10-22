@@ -16,6 +16,10 @@ extern const int kCompatOverrideCount;
 
 void OverrideLog(const char* fmt, ...);
 
+// [orcsteam] settings from orcsteam.ini next to the DLL (core.cpp); the file is optional.
+int OrcsteamIniInt(const char* key, int fallback);
+void OrcsteamIniString(const char* key, const char* fallback, char* out, unsigned long cap);
+
 // Transport: sockets, XNet addresses, QoS (net.cpp)
 extern const Override kNetOverrides[];
 extern const int kNetOverrideCount;

@@ -187,6 +187,16 @@ static int TestSteam(HMODULE proxy) {
     ((FnCreate)Ord(proxy, 5300))(0x2D, 0, 4, 0, &nonce, sinfo, nullptr, &session);
     PumpFor(4000);
 
+    // Rich presence: hosting a matchmaking session shows "In an online lobby" and a player group.
+    typedef void* (__cdecl * Getter)();
+    ISteamFriends009* friends = (ISteamFriends009*)((Getter)GetProcAddress(api, "SteamFriends"))();
+    ISteamUser016* user = (ISteamUser016*)((Getter)GetProcAddress(api, "SteamUser"))();
+    CSteamID me = user->GetSteamID();
+    const char* status = friends->GetFriendRichPresence(me, "status");
+    const char* group = friends->GetFriendRichPresence(me, "steam_player_group");
+    printf("steam: presence status '%s', group '%s'\n", status, group);
+    if (strcmp(status, "In an online lobby") || !group[0]) nameFails++;  // counted with the other early checks
+
     struct { ULONG_PTR low, high, ctx; HANDLE ev; void* routine; DWORD_PTR cctx; DWORD ext; } ov = {};
     ov.ev = CreateEventA(nullptr, TRUE, FALSE, nullptr);
     typedef DWORD(WINAPI * FnSearch)(DWORD, DWORD, DWORD, WORD, WORD, void*, void*, DWORD*, void*, void*);
@@ -217,6 +227,31 @@ static int TestSteam(HMODULE proxy) {
 
     typedef BOOL(WINAPI * FnCloseH)(HANDLE);
     ((FnCloseH)Ord(proxy, 5251))(session);
+    PumpFor(500);
+    status = friends->GetFriendRichPresence(me, "status");
+    printf("steam: presence after close '%s'\n", status);
+    if (status[0]) fails++;
+
+    // lobby=friends: the hosted lobby must not be listed by a search (it is friends/invite only).
+    WritePrivateProfileStringA("orcsteam", "lobby", "friends", ".\\orcsteam.ini");
+    HANDLE privateSession = nullptr;
+    ((FnCreate)Ord(proxy, 5300))(0x2D, 0, 4, 0, &nonce, sinfo, nullptr, &privateSession);
+    PumpFor(3000);
+    memset(&ov, 0, sizeof(ov));
+    ov.ev = CreateEventA(nullptr, TRUE, FALSE, nullptr);
+    memset(results, 0, cb);
+    SetEnvironmentVariableA("ORCSTEAM_SEARCH_SELF", "1");
+    ((FnSearch)Ord(proxy, 5321))(0, 0, 10, 0, 0, nullptr, nullptr, &cb, results, &ov);
+    WaitForSingleObject(ov.ev, 10000);
+    SetEnvironmentVariableA("ORCSTEAM_SEARCH_SELF", nullptr);
+    DWORD mine = 0;
+    BYTE* r2 = *(BYTE**)(results + 4);
+    for (DWORD i = 0; r2 && i < *(DWORD*)results; i++)
+        if (!memcmp(r2 + i * 0x5C, sinfo, 8)) mine++;  // our session id
+    printf("steam: friends-only lobby found by search %lu time(s)\n", mine);
+    if (mine) fails++;
+    ((FnCloseH)Ord(proxy, 5251))(privateSession);
+    DeleteFileA(".\\orcsteam.ini");
     PumpFor(500);
 
     fails += TestInvite(proxy, api);  // api: the steam_api.dll module loaded above

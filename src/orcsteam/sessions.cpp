@@ -102,6 +102,60 @@ static Session* Find(HANDLE h) {
     return nullptr;
 }
 
+// lobby=friends in orcsteam.ini: hosted games are visible to Steam friends and invitees only
+// (they also no longer show up in anyone's in-game search). Default: public.
+static int HostedLobbyType() {
+    char value[16];
+    OrcsteamIniString("lobby", "public", value, sizeof(value));
+    return _stricmp(value, "friends") == 0 ? kLobbyFriendsOnly : kLobbyPublic;
+}
+
+// Steam rich presence from the session state. Without the publisher's localization tokens Steam shows
+// "status" in the friend's "View game info" dialog; the player group keeps lobby mates together in
+// the friends list. Must be called without g_lock held.
+static void UpdatePresence() {
+    static char lastStatus[64], lastGroup[24], lastSize[8];
+    const SteamApi* steam = Steam();
+    if (!steam) return;
+    bool party = false, match = false, started = false;
+    uint64 group = 0;
+    int players = 0;
+    AcquireSRWLockShared(&g_lock);
+    for (Session& s : g_sessions) {
+        if (!s.handle) continue;
+        if (!(s.flags & kCreateUsesMatchmaking)) {
+            party = true;
+            continue;
+        }
+        match = true;
+        started |= s.started;
+        if (s.lobby) group = s.lobby;
+        if (s.memberCount > players) players = s.memberCount;
+    }
+    ReleaseSRWLockShared(&g_lock);
+
+    char status[64] = "", groupText[24] = "", size[8] = "";
+    if (started && players > 1) sprintf_s(status, "On a mission (%d players)", players);
+    else if (started) strcpy_s(status, "On a mission");
+    else if (match) strcpy_s(status, "In an online lobby");
+    else if (party) strcpy_s(status, "In the online menu");
+    if (group) {  // we are in a Steam lobby: group with its other members (we count at least ourselves)
+        sprintf_s(groupText, "%016llX", group);
+        sprintf_s(size, "%d", players > 1 ? players : 1);
+    }
+    if (strcmp(status, lastStatus)) {
+        steam->friends->SetRichPresence("status", status);  // empty value removes the key
+        strcpy_s(lastStatus, status);
+        OverrideLog("presence: '%s'", status);
+    }
+    if (strcmp(groupText, lastGroup) || strcmp(size, lastSize)) {
+        steam->friends->SetRichPresence("steam_player_group", groupText);
+        steam->friends->SetRichPresence("steam_player_group_size", size);
+        strcpy_s(lastGroup, groupText);
+        strcpy_s(lastSize, size);
+    }
+}
+
 static void Random(void* out, size_t n) {
     typedef BOOLEAN(WINAPI * GenRandom)(PVOID, ULONG);  // RtlGenRandom
     static GenRandom gen = (GenRandom)GetProcAddress(LoadLibraryA("advapi32.dll"), "SystemFunction036");
@@ -251,6 +305,7 @@ static void OnLobbyCreated(void* ctx, const void* result, bool failed) {
         OverrideLog("lobby %016llX created for session %p", s->lobby, s->handle);
     }
     Unlock();
+    UpdatePresence();
 }
 
 static void OnLobbyEntered(void* ctx, const void* result, bool failed) {
@@ -268,6 +323,7 @@ static void OnLobbyEntered(void* ctx, const void* result, bool failed) {
         OverrideLog("joined lobby %016llX for session %p", s->lobby, s->handle);
     }
     Unlock();
+    UpdatePresence();
 }
 
 static void LeaveLobbyOf(Session& s) {  // caller holds g_lock
@@ -369,8 +425,9 @@ static DWORD WINAPI My_XSessionCreate(DWORD flags, DWORD userIndex, DWORD maxPub
     *ph = s->handle;
 
     bool matchmaking = (flags & kCreateUsesMatchmaking) != 0;
+    int lobbyType = HostedLobbyType();
     if (matchmaking && steam && s->host) {
-        SteamAsync(steam->mm->CreateLobby(kLobbyPublic, (int)(maxPublic + maxPrivate)), LobbyCreated_t::k_iCallback,
+        SteamAsync(steam->mm->CreateLobby(lobbyType, (int)(maxPublic + maxPrivate)), LobbyCreated_t::k_iCallback,
                    sizeof(LobbyCreated_t), OnLobbyCreated, SessionCtx(*s));
     } else if (matchmaking && steam) {
         uint64 lobby = 0;
@@ -384,9 +441,11 @@ static DWORD WINAPI My_XSessionCreate(DWORD flags, DWORD userIndex, DWORD maxPub
             OverrideLog("!! client session for a host we did not find in a search");
     }
     OverrideLog("session %p created: flags %03lX, slots %lu+%lu, %s%s, type %lX mode %lX", s->handle, flags, maxPublic,
-                maxPrivate, s->host ? "host" : "client", matchmaking ? ", steam lobby" : "",
+                maxPrivate, s->host ? "host" : "client",
+                matchmaking ? (s->host && lobbyType == kLobbyFriendsOnly ? ", steam lobby (friends only)" : ", steam lobby") : "",
                 ContextValue(s->attrs, kContextGameType), ContextValue(s->attrs, kContextGameMode));
     Unlock();
+    UpdatePresence();
     return Complete(ov, ERROR_SUCCESS);
 }
 
@@ -399,6 +458,7 @@ static DWORD WINAPI My_XSessionDelete(HANDLE h, XOVERLAPPED* ov) {
         s->started = false;
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -410,6 +470,7 @@ static DWORD WINAPI My_XSessionStart(HANDLE h, DWORD flags, XOVERLAPPED* ov) {
         if (s->host) PublishLobby(*s);
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -421,6 +482,7 @@ static DWORD WINAPI My_XSessionEnd(HANDLE h, XOVERLAPPED* ov) {
         if (s->host) PublishLobby(*s);
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -434,6 +496,7 @@ static DWORD WINAPI My_XSessionModify(HANDLE h, DWORD flags, DWORD maxPublic, DW
         if (s->host) PublishLobby(*s);
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -447,6 +510,7 @@ static DWORD WINAPI My_XSessionJoinLocal(HANDLE h, DWORD count, const DWORD* use
         if (s->host) PublishLobby(*s);
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -459,6 +523,7 @@ static DWORD WINAPI My_XSessionLeaveLocal(HANDLE h, DWORD count, const DWORD* us
         if (s->host) PublishLobby(*s);
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -474,6 +539,7 @@ static DWORD WINAPI My_XSessionJoinRemote(HANDLE h, DWORD count, const XUID* xui
         if (s->host) PublishLobby(*s);
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -488,6 +554,7 @@ static DWORD WINAPI My_XSessionLeaveRemote(HANDLE h, DWORD count, const XUID* xu
         if (s->host) PublishLobby(*s);
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -502,6 +569,7 @@ static DWORD WINAPI My_XSessionMigrateHost(HANDLE h, DWORD userIndex, XSESSION_I
         PublishLobby(*s);
     }
     Unlock();
+    UpdatePresence();
     return Complete(ov, s ? ERROR_SUCCESS : ERROR_INVALID_HANDLE);
 }
 
@@ -720,6 +788,7 @@ static BOOL WINAPI My_XCloseHandle(HANDLE h) {
         memset(s, 0, sizeof(*s));
     }
     Unlock();
+    if (s) UpdatePresence();
     return s ? TRUE : FALSE;  // other handles: the old stub closed nothing and returned 0
 }
 
