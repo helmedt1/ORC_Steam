@@ -1,0 +1,12 @@
+# Build output
+build/
+
+# Your own copies of game files and the old community stub: never publish
+backup/
+
+# Release artifacts (built from dist/ by scripts/package.ps1)
+*.zip
+dist/orcsteam/
+
+# Logs
+*.log
