@@ -19,6 +19,7 @@ void OverrideLog(const char* fmt, ...);
 // [orcsteam] settings from orcsteam.ini next to the DLL (core.cpp); the file is optional.
 int OrcsteamIniInt(const char* key, int fallback);
 void OrcsteamIniString(const char* key, const char* fallback, char* out, unsigned long cap);
+bool OrcsteamDiag();  // diag=1 in orcsteam.ini (or ORCSTEAM_DIAG=1): detailed network log for test builds
 
 // Transport: sockets, XNet addresses, QoS (net.cpp)
 extern const Override kNetOverrides[];

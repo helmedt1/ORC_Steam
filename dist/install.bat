@@ -19,6 +19,6 @@ copy /y "orcsteam\xlive.dll" "xlive.dll" >nul
 rem Leftovers of the test builds.
 if exist "xlive_orig.dll" del "xlive_orig.dll"
 if exist "orcsteam_xlive.log" del "orcsteam_xlive.log"
-echo Done: orcsteam 1.1 is installed. The previous xlive.dll is saved as xlive.dll.orcsteam-backup
-echo Готово: orcsteam 1.1 установлен. Прежний xlive.dll сохранён как xlive.dll.orcsteam-backup
+echo Done: orcsteam 1.2 is installed. The previous xlive.dll is saved as xlive.dll.orcsteam-backup
+echo Готово: orcsteam 1.2 установлен. Прежний xlive.dll сохранён как xlive.dll.orcsteam-backup
 pause

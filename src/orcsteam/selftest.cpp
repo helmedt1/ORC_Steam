@@ -416,6 +416,24 @@ int main(int argc, char** argv) {
     printf("#5321 search r=%lu cb=%lu esp %s\n", r, cb, before == after ? "ok" : "BAD");
     if (r != ERROR_INSUFFICIENT_BUFFER || cb <= 8 || before != after) fails++;
 
+    // Host migration: with XUSER_INDEX_NONE (0xFE) the info is the new host's and must stay untouched;
+    // with our user index we become the host and the info gets our address.
+    typedef DWORD(WINAPI * FnMigrate)(HANDLE, DWORD, void*, void*);
+    BYTE other[60];
+    memcpy(other, sinfo, sizeof(other));
+    memset(other + 8, 0xAB, 36);  // XNADDR of someone else
+    BYTE given[60];
+    memcpy(given, other, sizeof(given));
+    __asm mov before, esp
+    r = ((FnMigrate)GetProcAddress(proxy, MAKEINTRESOURCEA(5323)))(session, 0xFE, given, nullptr);
+    __asm mov after, esp
+    bool kept = memcmp(given, other, sizeof(given)) == 0;
+    DWORD r2 = ((FnMigrate)GetProcAddress(proxy, MAKEINTRESOURCEA(5323)))(session, 0, given, nullptr);
+    bool ours = memcmp(given + 8, sinfo + 8, 36) == 0;
+    printf("#5323 migrate: other host r=%lu kept=%d, we host r=%lu ours=%d, esp %s\n", r, kept, r2, ours,
+           before == after ? "ok" : "BAD");
+    if (r != 0 || !kept || r2 != 0 || !ours || before != after) fails++;
+
     typedef BOOL(WINAPI * FnClose)(HANDLE);
     BOOL closed = ((FnClose)GetProcAddress(proxy, MAKEINTRESOURCEA(5251)))(session);
     r = ((FnStart)GetProcAddress(proxy, MAKEINTRESOURCEA(5318)))(session, 0, nullptr);

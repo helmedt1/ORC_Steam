@@ -165,6 +165,18 @@ struct LobbyEnter_t { enum { k_iCallback = 504 }; uint64 m_ulSteamIDLobby; DWORD
 struct LobbyMatchList_t { enum { k_iCallback = 510 }; DWORD m_nLobbiesMatching; };
 struct P2PSessionRequest_t { enum { k_iCallback = 1202 }; CSteamID m_steamIDRemote; };
 struct GameLobbyJoinRequested_t { enum { k_iCallback = 333 }; CSteamID m_steamIDLobby; CSteamID m_steamIDFriend; };
+struct P2PSessionConnectFail_t { enum { k_iCallback = 1203 }; CSteamID m_steamIDRemote; BYTE m_eP2PSessionError; };
+struct LobbyChatUpdate_t {
+    enum { k_iCallback = 506 };
+    uint64 m_ulSteamIDLobby, m_ulSteamIDUserChanged, m_ulSteamIDMakingChange;
+    DWORD m_rgfChatMemberStateChange;  // 1 entered, 2 left, 4 disconnected, 8 kicked, 0x10 banned
+};
+struct P2PSessionState_t {
+    BYTE m_bConnectionActive, m_bConnecting, m_eP2PSessionError, m_bUsingRelay;
+    int m_nBytesQueuedForSend, m_nPacketsQueuedForSend;
+    DWORD m_nRemoteIP;
+    WORD m_nRemotePort;
+};
 #pragma pack(pop)
 
 struct SteamApi {

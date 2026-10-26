@@ -12,7 +12,7 @@
 #include "names.h"
 #include "overrides.h"
 
-static const char kVersion[] = "1.1";
+static const char kVersion[] = "1.2";
 static const LONG kVerboseCalls = 40;  // traced lines per ordinal, then only counted
 static const int kMaxDepth = 64;       // per-thread nesting of traced calls
 static const DWORD kSummaryEveryMs = 15000;
@@ -263,10 +263,14 @@ void OrcsteamIniString(const char* key, const char* fallback, char* out, unsigne
     GetPrivateProfileStringA("orcsteam", key, fallback, out, cap, g_iniPath);
 }
 
-static bool TraceRequested() {
+static bool g_diag;
+
+bool OrcsteamDiag() { return g_diag; }
+
+static bool Requested(const char* env, const char* key) {
     char value[8];
-    if (GetEnvironmentVariableA("ORCSTEAM_TRACE", value, sizeof(value)) && value[0] == '1') return true;
-    return OrcsteamIniInt("trace", 0) == 1;
+    if (GetEnvironmentVariableA(env, value, sizeof(value)) && value[0] == '1') return true;
+    return OrcsteamIniInt(key, 0) == 1;
 }
 
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
@@ -278,7 +282,8 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         g_lastSummary = (LONG)GetTickCount();
         ModuleDir(inst, g_iniPath, MAX_PATH);
         strcat_s(g_iniPath, "orcsteam.ini");
-        g_trace = TraceRequested();
+        g_trace = Requested("ORCSTEAM_TRACE", "trace");
+        g_diag = Requested("ORCSTEAM_DIAG", "diag");
 
         for (OrdInfo& oi : g_ords) {
             oi.name = "?";
@@ -300,7 +305,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 
         char exe[MAX_PATH];
         GetModuleFileNameA(nullptr, exe, MAX_PATH);
-        Log("orcsteam %s%s. exe: %s", kVersion, g_trace ? " (trace on)" : "", exe);
+        Log("orcsteam %s%s%s. exe: %s", kVersion, g_trace ? " (trace on)" : "", g_diag ? " (diag on)" : "", exe);
         for (OrdInfo& oi : g_ords)
             if (oi.target == (void*)MissingTarget) Log("!! no implementation for #%u %s", oi.ord, oi.name);
         AddVectoredExceptionHandler(1, CrashLogger);

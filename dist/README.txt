@@ -1,4 +1,4 @@
-orcsteam 1.1 - online play for Resident Evil: Operation Raccoon City over Steam
+orcsteam 1.2 - online play for Resident Evil: Operation Raccoon City over Steam
 ==============================================================================
 
 The PC version was built on Games for Windows Live, which is gone. orcsteam is a
@@ -39,11 +39,20 @@ Create orcsteam.ini next to xlive.dll in the game folder:
   you invite. They do not show up in anyone's in-game search, so friends join with
   an invite or "Join game". Without this line (default) your games are public.
 - trace=1: a detailed log for bug reports (the log gets large; remove it afterwards).
+- diag=1: a detailed network log (packets, Steam connection state) for connection problems.
 
 
 TESTED
-Co-op campaign with 2 players: search, invites, "Join game", start from an invite,
-host change. Not tested yet: 3-4 players, versus modes.
+Co-op campaign with 2 and 4 players: search, invites, "Join game", start from an
+invite, host change. Not tested yet: versus modes.
+
+
+WHAT'S NEW IN 1.2
+- Host change with 4 players: players who do not become the host no longer take
+  the host role themselves, and the Steam lobby points to the new host afterwards
+  ("Join game" after the host left used to lead into a closed game).
+- The fourth player no longer drops out of the Steam lobby 2 minutes after joining.
+- diag=1 setting for a detailed network log.
 
 NOT SUPPORTED
 Voice chat, leaderboards, achievements (the old service is gone; nothing is sent).

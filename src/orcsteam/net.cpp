@@ -23,15 +23,42 @@ static const DWORD kUnreliableMax = 1200;      // Steam's limit for unreliable s
 static const int kChannel = 0;
 static const int kMaxPeers = 64;
 static const DWORD kStatsEveryMs = 60000;
+static const DWORD kDiagStatsEveryMs = 10000;
+static const LONG kDiagErrors = 20;  // per kind of error, then only counted
 static const DWORD kVirtualNet = 0x0A000000, kVirtualMask = 0xFF000000;  // 10.0.0.0/8, host order
 
-struct Peer { DWORD ip; DWORD accountId; LONG sent, recv; };
+struct Peer {
+    DWORD ip;
+    DWORD accountId;
+    LONG sent, recv;
+    LONGLONG bytesSent, bytesRecv;
+    LONG lastSent, lastRecv;  // at the previous stats line
+};
 
 static SRWLOCK g_lock = SRWLOCK_INIT;
 static Peer g_peers[kMaxPeers];
 static SOCKET g_inject = INVALID_SOCKET;
 static WORD g_injectPort;  // network order
-static volatile LONG g_dropNoPeer, g_dropSend;
+static volatile LONG g_dropNoPeer, g_dropSend, g_injectFail, g_recvError, g_recvForeign, g_badMagic;
+
+// diag: how many packets per peer and direction are logged one by one (diag_packets in orcsteam.ini).
+static LONG DiagPackets() {
+    static LONG n = -1;
+    if (n < 0) n = OrcsteamDiag() ? OrcsteamIniInt("diag_packets", 40) : 0;
+    return n;
+}
+
+static void HexHead(const BYTE* data, int len, char* out) {  // out: at least 3 * 16 + 1
+    int n = len < 16 ? len : 16;
+    for (int i = 0; i < n; i++) sprintf_s(out + i * 3, 4, "%02X ", data[i]);
+    out[n ? n * 3 - 1 : 0] = 0;
+}
+
+static void LogPacket(const char* dir, LONG index, DWORD accountId, WORD dstPort, WORD srcPort, const BYTE* data, int len) {
+    char hex[3 * 16 + 1];
+    HexHead(data, len, hex);
+    OverrideLog("net %s #%ld %lu: port %u -> %u, %d bytes: %s", dir, index, accountId, ntohs(srcPort), ntohs(dstPort), len, hex);
+}
 
 static bool IsVirtual(DWORD ipNbo) {
     return (_byteswap_ulong(ipNbo) & kVirtualMask) == kVirtualNet;
@@ -50,7 +77,7 @@ static void RememberPeer(DWORD accountId) {
         }
         if (!p.ip && !freeSlot) freeSlot = &p;
     }
-    if (freeSlot) *freeSlot = {ip, accountId, 0, 0};
+    if (freeSlot) *freeSlot = {ip, accountId};
     ReleaseSRWLockExclusive(&g_lock);
     if (freeSlot) OverrideLog("peer %lu.%lu.%lu.%lu = steam account %lu", ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, accountId);
 }
@@ -94,7 +121,9 @@ static void Inject(WORD dstPort, DWORD srcIp, WORD srcPort, const BYTE* data, in
     to.sin_family = AF_INET;
     to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     to.sin_port = dstPort;
-    sendto(g_inject, (const char*)buf, len + kInjectHeader, 0, (sockaddr*)&to, sizeof(to));
+    if (sendto(g_inject, (const char*)buf, len + kInjectHeader, 0, (sockaddr*)&to, sizeof(to)) == SOCKET_ERROR &&
+        InterlockedIncrement(&g_injectFail) <= kDiagErrors)
+        OverrideLog("!! loopback inject to port %u failed: %d", ntohs(dstPort), WSAGetLastError());
 }
 
 static WORD LocalPort(SOCKET s) {
@@ -114,12 +143,18 @@ static bool SendVirtual(SOCKET s, const sockaddr* to, const BYTE* data, int len)
     AcquireSRWLockExclusive(&g_lock);
     Peer* p = FindPeer(dst->sin_addr.s_addr);
     DWORD accountId = p ? p->accountId : 0;
-    if (p) p->sent++;
+    LONG index = 0;
+    if (p) {
+        index = ++p->sent;
+        p->bytesSent += len;
+    }
     ReleaseSRWLockExclusive(&g_lock);
     if (!accountId) {
-        if (InterlockedIncrement(&g_dropNoPeer) <= 5) OverrideLog("!! send to unknown virtual address %08lX dropped", dst->sin_addr.s_addr);
+        if (InterlockedIncrement(&g_dropNoPeer) <= (OrcsteamDiag() ? kDiagErrors : 5))
+            OverrideLog("!! send to unknown virtual address %08lX dropped", dst->sin_addr.s_addr);
         return true;  // UDP: silently lost
     }
+    if (index <= DiagPackets()) LogPacket("out", index, accountId, dst->sin_port, srcPort, data, len);
     if (accountId == LocalAccountId()) {
         Inject(dst->sin_port, dst->sin_addr.s_addr, srcPort, data, len);
         return true;
@@ -137,17 +172,43 @@ static bool SendVirtual(SOCKET s, const sockaddr* to, const BYTE* data, int len)
     memcpy(buf + kP2PHeader, data, len);
     DWORD total = len + kP2PHeader;
     if (!steam->net->SendP2PPacket(CSteamID::Individual(accountId), buf, total,
-                                   total <= kUnreliableMax ? kP2PUnreliable : kP2PReliable, kChannel))
-        InterlockedIncrement(&g_dropSend);
+                                   total <= kUnreliableMax ? kP2PUnreliable : kP2PReliable, kChannel) &&
+        InterlockedIncrement(&g_dropSend) <= (OrcsteamDiag() ? kDiagErrors : 0))
+        OverrideLog("!! SendP2PPacket to %lu failed (%lu bytes)", accountId, total);
     return true;
 }
 
-static void LogStats() {
-    AcquireSRWLockShared(&g_lock);
-    for (Peer& p : g_peers)
-        if (p.ip && (p.sent || p.recv)) OverrideLog("net: account %lu sent %ld, recv %ld", p.accountId, p.sent, p.recv);
-    ReleaseSRWLockShared(&g_lock);
-    if (g_dropNoPeer || g_dropSend) OverrideLog("net: dropped %ld (no peer), %ld (steam send failed)", g_dropNoPeer, g_dropSend);
+static void LogStats(const SteamApi& s) {
+    struct Line { DWORD accountId; LONG sent, recv, dSent, dRecv; LONGLONG bytesSent, bytesRecv; };
+    Line lines[kMaxPeers];
+    int n = 0;
+    AcquireSRWLockExclusive(&g_lock);
+    for (Peer& p : g_peers) {
+        if (!p.ip || !(p.sent || p.recv)) continue;
+        lines[n++] = {p.accountId, p.sent, p.recv, p.sent - p.lastSent, p.recv - p.lastRecv, p.bytesSent, p.bytesRecv};
+        p.lastSent = p.sent;
+        p.lastRecv = p.recv;
+    }
+    ReleaseSRWLockExclusive(&g_lock);
+    for (int i = 0; i < n; i++) {
+        const Line& l = lines[i];
+        if (!OrcsteamDiag()) {
+            OverrideLog("net: account %lu sent %ld, recv %ld", l.accountId, l.sent, l.recv);
+            continue;
+        }
+        // diag: also what Steam itself thinks of the connection
+        P2PSessionState_t st = {};
+        bool known = l.accountId != LocalAccountId() && s.net->GetP2PSessionState(CSteamID::Individual(l.accountId), &st);
+        OverrideLog("net: account %lu sent %ld (+%ld, %lld B), recv %ld (+%ld, %lld B); steam %s%s%s, error %u, queued %d pkt / %d B",
+                    l.accountId, l.sent, l.dSent, l.bytesSent, l.recv, l.dRecv, l.bytesRecv,
+                    !known ? "no session" : st.m_bConnectionActive ? "active" : "inactive",
+                    known && st.m_bConnecting ? ", connecting" : "", known && st.m_bUsingRelay ? ", relay" : "",
+                    st.m_eP2PSessionError, st.m_nPacketsQueuedForSend, st.m_nBytesQueuedForSend);
+    }
+    if (g_dropNoPeer || g_dropSend || g_injectFail || g_recvError || g_recvForeign || g_badMagic)
+        OverrideLog("net: dropped %ld (no peer), %ld (steam send failed), %ld (inject failed); recv errors %ld, "
+                    "foreign datagrams %ld, bad p2p magic %ld",
+                    g_dropNoPeer, g_dropSend, g_injectFail, g_recvError, g_recvForeign, g_badMagic);
 }
 
 void NetPumpReceive(const SteamApi& s) {
@@ -159,20 +220,30 @@ void NetPumpReceive(const SteamApi& s) {
         if (!s.net->ReadP2PPacket(buf, sizeof(buf), &size, &from, kChannel)) break;
         WORD magic;
         memcpy(&magic, buf, 2);
-        if (size < (DWORD)kP2PHeader || magic != kP2PMagic) continue;
+        if (size < (DWORD)kP2PHeader || magic != kP2PMagic) {
+            if (InterlockedIncrement(&g_badMagic) <= (OrcsteamDiag() ? kDiagErrors : 0))
+                OverrideLog("!! p2p packet from %lu without our header (%lu bytes)", from.AccountId(), size);
+            continue;
+        }
         DWORD accountId = from.AccountId();
         RememberPeer(accountId);
         DWORD ip = VirtualIpFor(accountId);
+        LONG index = 0;
         AcquireSRWLockExclusive(&g_lock);
-        if (Peer* p = FindPeer(ip)) p->recv++;
+        if (Peer* p = FindPeer(ip)) {
+            index = ++p->recv;
+            p->bytesRecv += size - kP2PHeader;
+        }
         ReleaseSRWLockExclusive(&g_lock);
         WORD dstPort, srcPort;
         memcpy(&dstPort, buf + 2, 2);
         memcpy(&srcPort, buf + 4, 2);
+        if (index && index <= DiagPackets())
+            LogPacket("in", index, accountId, dstPort, srcPort, buf + kP2PHeader, (int)size - kP2PHeader);
         Inject(dstPort, ip, srcPort, buf + kP2PHeader, size - kP2PHeader);
     }
-    if (GetTickCount() - lastStats >= kStatsEveryMs) {
-        LogStats();
+    if (GetTickCount() - lastStats >= (OrcsteamDiag() ? kDiagStatsEveryMs : kStatsEveryMs)) {
+        LogStats(s);
         lastStats = GetTickCount();
     }
 }
@@ -189,6 +260,12 @@ static int WINAPI My_XSocketRecvFrom(SOCKET s, char* buf, int len, int flags, so
     sockaddr_in src = {};
     int srcLen = sizeof(src);
     int n = recvfrom(s, buf, len, flags, (sockaddr*)&src, &srcLen);
+    if (n == SOCKET_ERROR && OrcsteamDiag()) {
+        int err = WSAGetLastError();
+        if (err != WSAEWOULDBLOCK && InterlockedIncrement(&g_recvError) <= kDiagErrors)
+            OverrideLog("!! recvfrom on socket %u (port %u) failed: %d", (unsigned)s, ntohs(LocalPort(s)), err);
+        WSASetLastError(err);  // the game reads it
+    }
     DWORD magic = 0;
     if (n >= kInjectHeader) memcpy(&magic, buf, 4);
     if (n >= kInjectHeader && magic == kInjectMagic && src.sin_family == AF_INET &&
@@ -197,6 +274,11 @@ static int WINAPI My_XSocketRecvFrom(SOCKET s, char* buf, int len, int flags, so
         memcpy(&src.sin_port, buf + 8, 2);
         n -= kInjectHeader;
         memmove(buf, buf + kInjectHeader, n);
+    } else if (n > 3 && OrcsteamDiag() && InterlockedIncrement(&g_recvForeign) <= kDiagErrors) {
+        // not from Steam (the game's own 3-byte wake-ups are skipped)
+        OverrideLog("net: socket %u got %d bytes from %u.%u.%u.%u:%u, not via steam", (unsigned)s, n,
+                    src.sin_addr.S_un.S_un_b.s_b1, src.sin_addr.S_un.S_un_b.s_b2, src.sin_addr.S_un.S_un_b.s_b3,
+                    src.sin_addr.S_un.S_un_b.s_b4, ntohs(src.sin_port));
     }
     if (n >= 0 && from && fromlen) {
         int copy = *fromlen < srcLen ? *fromlen : srcLen;
@@ -238,6 +320,10 @@ static INT WINAPI My_XNetXnAddrToInAddr(const XNADDR* xna, const XNKID* kid, IN_
     }
     NetAcceptPeer(XnAddrAccountId(xna));
     *ina = xna->ina;
+    static volatile LONG logged;
+    if (OrcsteamDiag() && InterlockedIncrement(&logged) <= 60)
+        OverrideLog("xnet: xnaddr of account %lu -> %u.%u.%u.%u", XnAddrAccountId(xna), ina->S_un.S_un_b.s_b1,
+                    ina->S_un.S_un_b.s_b2, ina->S_un.S_un_b.s_b3, ina->S_un.S_un_b.s_b4);
     return 0;
 }
 
@@ -246,7 +332,13 @@ static INT WINAPI My_XNetInAddrToXnAddr(IN_ADDR ina, XNADDR* xna, XNKID* kid) {
     Peer* p = FindPeer(ina.S_un.S_addr);
     DWORD accountId = p ? p->accountId : 0;
     ReleaseSRWLockShared(&g_lock);
-    if (!accountId) return 0;  // unknown address: outputs untouched, like the old stub
+    if (!accountId) {  // unknown address: outputs untouched, like the old stub
+        static volatile LONG logged;
+        if (OrcsteamDiag() && InterlockedIncrement(&logged) <= kDiagErrors)
+            OverrideLog("!! xnet: no xnaddr for unknown address %u.%u.%u.%u", ina.S_un.S_un_b.s_b1, ina.S_un.S_un_b.s_b2,
+                        ina.S_un.S_un_b.s_b3, ina.S_un.S_un_b.s_b4);
+        return 0;
+    }
     if (xna) FillXnAddrFor(accountId, xna);
     if (kid) ActiveSessionKid(kid);
     return 0;

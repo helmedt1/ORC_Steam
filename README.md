@@ -11,7 +11,7 @@ every GFWL function the game imports (82 of them) and backs the online ones with
 | Sessions (`XSession*`), matchmaking search | Steam lobbies carrying the session info and search contexts |
 | Game invites, joining friends | Steam overlay invites, "Join game" in the friends list, `+connect_lobby` |
 | Secure network (XNet, VDP sockets) | Virtual 10.x.y.z addresses mapped to Steam IDs; datagrams over Steam P2P (relay, no port forwarding) |
-| Host migration | Works: the new host republishes the lobby |
+| Host migration | Works: peers adopt the new host's session info; whoever Steam hands the lobby to republishes it |
 | Presence | Steam rich presence player group: lobby mates are grouped in the friends list |
 | Lobby privacy | Public by default; `lobby=friends` in `orcsteam.ini` makes hosted games friends/invite-only |
 | Saves (`XLiveProtectData`) | Stored as-is, byte-compatible with the community stub used so far |
@@ -20,14 +20,15 @@ every GFWL function the game imports (82 of them) and backs the online ones with
 Players see this as: install, start the game from Steam, create or find an online game, or invite Steam friends.
 User instructions: [`dist/README.txt`](dist/README.txt) (English), [`dist/ПРОЧТИ.txt`](dist/ПРОЧТИ.txt) (Russian).
 
-**Status (1.1):** two-player co-op campaign tested end to end (search, invites, join from the friends list,
-start from an invite, host migration). Not tested yet: 3-4 players, versus modes.
+**Status (1.2):** co-op campaign with two and four players tested end to end (search, invites, join from the
+friends list, start from an invite, host migration). Not tested yet: versus modes.
 
 ## How it works
 
 - `core.cpp` exports the 82 ordinals `RaccoonCity.exe` imports. Each goes through a two-instruction stub to its
   implementation; with tracing on (`ORCSTEAM_TRACE=1` or `trace=1` in `orcsteam.ini`) every call is logged with
-  its arguments and result. A vectored exception handler logs crashes with module offsets and the last call.
+  its arguments and result; `diag=1` adds a network log (per-peer packets, Steam P2P session state, lobby
+  members, sockets). A vectored exception handler logs crashes with module offsets and the last call.
 - `steam.cpp` talks to the game's own `steam_api.dll` (2012: `SteamMatchMaking008`, `SteamNetworking005`,
   `SteamUtils005`, `SteamFriends009`). Async calls are polled on a pump thread; no newer SDK is needed.
 - `sessions.cpp` maps sessions to lobbies, `net.cpp` moves traffic (outgoing datagrams to 10.x.y.z go to

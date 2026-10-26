@@ -37,6 +37,34 @@ public:
 };
 static P2PRequestCallback g_p2pRequest;
 
+// Callbacks that only log what Steam reports.
+class LogCallback : public CCallbackBase {
+public:
+    LogCallback(void (*fn)(const void*), int size) : m_fn(fn), m_size(size) {}
+    void Run(void* param) override { m_fn(param); }
+    void Run(void* param, bool, SteamAPICall_t) override { Run(param); }
+    int GetCallbackSizeBytes() override { return m_size; }
+private:
+    void (*m_fn)(const void*);
+    int m_size;
+};
+
+// 1 not running app, 2 no rights to app, 3 destination not logged in, 4 timeout
+static void OnP2PConnectFail(const void* param) {
+    const P2PSessionConnectFail_t* f = (const P2PSessionConnectFail_t*)param;
+    OverrideLog("!! p2p: session with %lu failed, error %u", f->m_steamIDRemote.AccountId(), f->m_eP2PSessionError);
+}
+
+static void OnLobbyChatUpdate(const void* param) {
+    const LobbyChatUpdate_t* u = (const LobbyChatUpdate_t*)param;
+    OverrideLog("lobby %016llX: account %lu state change %lX (by %lu)", u->m_ulSteamIDLobby,
+                CSteamID(u->m_ulSteamIDUserChanged).AccountId(), u->m_rgfChatMemberStateChange,
+                CSteamID(u->m_ulSteamIDMakingChange).AccountId());
+}
+
+static LogCallback g_p2pFail(OnP2PConnectFail, sizeof(P2PSessionConnectFail_t));
+static LogCallback g_lobbyChatUpdate(OnLobbyChatUpdate, sizeof(LobbyChatUpdate_t));
+
 static void PollAsync(const SteamApi& s) {
     AsyncCall ready[kMaxAsync];
     bool failedFlags[kMaxAsync];
@@ -100,6 +128,8 @@ const SteamApi* Steam() {
         g_api = api;
         g_api.net->AllowP2PPacketRelay(true);
         SteamRegisterCallback(&g_p2pRequest, P2PSessionRequest_t::k_iCallback);
+        SteamRegisterCallback(&g_p2pFail, P2PSessionConnectFail_t::k_iCallback);
+        SteamRegisterCallback(&g_lobbyChatUpdate, LobbyChatUpdate_t::k_iCallback);
         OverrideLog("steam ready: appid %lu", g_api.utils->GetAppID());
         g_pump = CreateThread(nullptr, 0, PumpThread, nullptr, 0, nullptr);
         InterlockedExchange(&g_ready, 1);

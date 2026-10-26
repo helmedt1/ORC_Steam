@@ -20,10 +20,20 @@ static const int kProtoVdp = 254;
 static SOCKET WINAPI My_XSocketCreate(int af, int type, int protocol) {
     if (type == 0) type = (protocol == 0 || protocol == IPPROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM;
     if (protocol == 0) protocol = type == SOCK_STREAM ? IPPROTO_TCP : IPPROTO_UDP;
+    int asked = protocol;
     if (protocol == kProtoVdp) protocol = IPPROTO_UDP;
-    return socket(af, type, protocol);
+    SOCKET s = socket(af, type, protocol);
+    if (OrcsteamDiag()) {
+        int err = WSAGetLastError();
+        OverrideLog("socket %u created: type %d, protocol %d", (unsigned)s, type, asked);
+        WSASetLastError(err);
+    }
+    return s;
 }
-static int WINAPI My_XSocketClose(SOCKET s) { return closesocket(s); }
+static int WINAPI My_XSocketClose(SOCKET s) {
+    if (OrcsteamDiag()) OverrideLog("socket %u closed", (unsigned)s);
+    return closesocket(s);
+}
 static int WINAPI My_XSocketShutdown(SOCKET s, int how) { return shutdown(s, how); }
 static int WINAPI My_XSocketIOCTLSocket(SOCKET s, long cmd, u_long* arg) { return ioctlsocket(s, cmd, arg); }
 static int WINAPI My_XSocketSetSockOpt(SOCKET s, int level, int name, const char* value, int len) {
@@ -33,7 +43,19 @@ static int WINAPI My_XSocketGetSockOpt(SOCKET s, int level, int name, char* valu
     return getsockopt(s, level, name, value, len);
 }
 static int WINAPI My_XSocketGetSockName(SOCKET s, sockaddr* name, int* len) { return getsockname(s, name, len); }
-static int WINAPI My_XSocketBind(SOCKET s, const sockaddr* name, int len) { return bind(s, name, len); }
+static int WINAPI My_XSocketBind(SOCKET s, const sockaddr* name, int len) {
+    int r = bind(s, name, len);
+    if (OrcsteamDiag()) {
+        int err = WSAGetLastError();
+        sockaddr_in a = {};
+        int alen = sizeof(a);
+        getsockname(s, (sockaddr*)&a, &alen);
+        OverrideLog("socket %u bound to port %u%s (error %d)", (unsigned)s, ntohs(a.sin_port), r == 0 ? "" : " FAILED",
+                    r == 0 ? 0 : err);
+        WSASetLastError(err);
+    }
+    return r;
+}
 static int WINAPI My_XSocketConnect(SOCKET s, const sockaddr* name, int len) { return connect(s, name, len); }
 static int WINAPI My_XSocketListen(SOCKET s, int backlog) { return listen(s, backlog); }
 static SOCKET WINAPI My_XSocketAccept(SOCKET s, sockaddr* addr, int* len) { return accept(s, addr, len); }

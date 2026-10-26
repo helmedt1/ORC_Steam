@@ -1,8 +1,8 @@
 #include <winver.h>
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1,1,0,0
-PRODUCTVERSION 1,1,0,0
+FILEVERSION 1,2,0,0
+PRODUCTVERSION 1,2,0,0
 FILEFLAGSMASK 0x3fL
 FILEFLAGS 0x0L
 FILEOS VOS_NT_WINDOWS32
@@ -15,11 +15,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "orcsteam"
             VALUE "FileDescription", "orcsteam: Steam online play for Resident Evil: Operation Raccoon City (replaces Games for Windows Live)"
-            VALUE "FileVersion", "1.1.0.0"
+            VALUE "FileVersion", "1.2.0.0"
             VALUE "InternalName", "xlive"
             VALUE "OriginalFilename", "xlive.dll"
             VALUE "ProductName", "orcsteam"
-            VALUE "ProductVersion", "1.1"
+            VALUE "ProductVersion", "1.2"
         END
     END
     BLOCK "VarFileInfo"

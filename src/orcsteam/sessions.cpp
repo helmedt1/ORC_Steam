@@ -70,6 +70,8 @@ struct Session {
     XUID members[kMaxMembers];
     Attributes attrs;
     uint64 lobby;  // Steam lobby id, 0 if none (yet)
+    DWORD lobbyMembersSeen;  // checksum of the lobby's member list, logged when it changes
+    bool publishPending;     // lobby data must be (re)written once we own the lobby (after a host change)
 };
 
 struct FoundLobby { XNKID kid; uint64 lobby; };
@@ -239,15 +241,17 @@ static DWORD ContextValue(const Attributes& a, DWORD id) {
     return 0xFFFFFFFF;
 }
 
-// Caller holds g_lock. Pushes the session's current state into its lobby.
-static void PublishLobby(const Session& s) {
+// Caller holds g_lock. Pushes the session's current state into its lobby. Only the lobby owner may write;
+// otherwise publishPending stays set and SessionsPump retries once Steam hands the lobby to us.
+static void PublishLobby(Session& s) {
     const SteamApi* steam = Steam();
     if (!steam || !s.lobby) return;
     CSteamID lobby(s.lobby);
     char info[sizeof(XSESSION_INFO) * 2 + 1], ctx[256], props[640], num[16];
     Hex(&s.info, sizeof(s.info), info);
     FormatAttrs(s.attrs, ctx, sizeof(ctx), props, sizeof(props));
-    steam->mm->SetLobbyData(lobby, kLobbyTag, kLobbyVersion);
+    s.publishPending = !steam->mm->SetLobbyData(lobby, kLobbyTag, kLobbyVersion);
+    if (s.publishPending) return;
     steam->mm->SetLobbyData(lobby, "info", info);
     steam->mm->SetLobbyData(lobby, "ctx", ctx);
     steam->mm->SetLobbyData(lobby, "props", props);
@@ -262,7 +266,8 @@ static void PublishLobby(const Session& s) {
     sprintf_s(num, "%lX", ContextValue(s.attrs, kContextGameMode));
     steam->mm->SetLobbyData(lobby, "mode", num);
     steam->mm->SetLobbyData(lobby, "started", s.started ? "1" : "0");
-    steam->mm->SetLobbyData(lobby, "name", LocalGamertag());  // ASCII, shown by the client's game as-is
+    // ASCII, shown by the client's game as-is. A client that merely owns the lobby keeps the host's name.
+    if (s.host) steam->mm->SetLobbyData(lobby, "name", LocalGamertag());
 }
 
 static void* SessionCtx(const Session& s) {
@@ -293,13 +298,28 @@ static void OnLobbyCreated(void* ctx, const void* result, bool failed) {
     UpdatePresence();
 }
 
+// Already a member (the invite entered it). Steam answers a second JoinLobby on a full lobby with
+// "full" (4) although we are in it, and the invite would then leave the lobby as unused after 120 s.
+static bool AlreadyInLobby(const SteamApi* steam, uint64 lobby) {
+    if (!steam || !lobby) return false;
+    CSteamID id(lobby);
+    int members = steam->mm->GetNumLobbyMembers(id);
+    for (int i = 0; i < members; i++)
+        if (steam->mm->GetLobbyMemberByIndex(id, i).AccountId() == LocalAccountId()) return true;
+    return false;
+}
+
 static void OnLobbyEntered(void* ctx, const void* result, bool failed) {
     const LobbyEnter_t* r = (const LobbyEnter_t*)result;
     const SteamApi* steam = Steam();
     Lock();
     Session* s = FromCtx(ctx);
     bool ok = !failed && r && r->m_EChatRoomEnterResponse == 1;
-    if (!ok) {
+    if (!ok && s && r && AlreadyInLobby(steam, r->m_ulSteamIDLobby)) {
+        s->lobby = r->m_ulSteamIDLobby;
+        OverrideLog("lobby %016llX: join answered %lu, but we are already in it; kept for session %p", s->lobby,
+                    r->m_EChatRoomEnterResponse, s->handle);
+    } else if (!ok) {
         OverrideLog("!! lobby join failed (io %d, response %lu)", failed, r ? r->m_EChatRoomEnterResponse : 0);
     } else if (!s) {
         if (steam) steam->mm->LeaveLobby(CSteamID(r->m_ulSteamIDLobby));
@@ -327,7 +347,31 @@ void SessionsPump(const SteamApi& steam) {
         if (!s.handle || !s.lobby) continue;
         CSteamID lobby(s.lobby);
         int members = steam.mm->GetNumLobbyMembers(lobby);
-        for (int i = 0; i < members && n < 64; i++) accounts[n++] = steam.mm->GetLobbyMemberByIndex(lobby, i).AccountId();
+        int first = n;
+        DWORD sum = (DWORD)members * 0x9E3779B1u;
+        for (int i = 0; i < members && n < 64; i++) {
+            accounts[n] = steam.mm->GetLobbyMemberByIndex(lobby, i).AccountId();
+            sum += accounts[n++] * 2654435761u;
+        }
+        if (sum != s.lobbyMembersSeen) {
+            s.lobbyMembersSeen = sum;
+            char list[256] = "";
+            for (int i = first; i < n; i++) {
+                char item[16];
+                sprintf_s(item, i > first ? ", %lu" : "%lu", accounts[i]);
+                strcat_s(list, item);
+            }
+            OverrideLog("lobby %016llX (session %p): %d member(s): %s; owner %lu", s.lobby, s.handle, members, list,
+                        steam.mm->GetLobbyOwner(lobby).AccountId());
+        }
+        // After a host change Steam passes the lobby to some remaining member, not necessarily the new host:
+        // whoever owns it writes the current host's session info (the game gave it to every member).
+        if (s.publishPending && steam.mm->GetLobbyOwner(lobby).AccountId() == LocalAccountId()) {
+            PublishLobby(s);
+            if (!s.publishPending)
+                OverrideLog("lobby %016llX: now ours, data updated (host account %lu)", s.lobby,
+                            XnAddrAccountId(&s.info.hostAddress));
+        }
     }
     Unlock();
     for (int i = 0; i < n; i++) NetAcceptPeer(accounts[i]);
@@ -419,11 +463,19 @@ static DWORD WINAPI My_XSessionCreate(DWORD flags, DWORD userIndex, DWORD maxPub
         for (FoundLobby& f : g_found)
             if (f.lobby && !memcmp(&f.kid, &s->info.sessionID, sizeof(XNKID))) lobby = f.lobby;
         NetAcceptPeer(XnAddrAccountId(&s->info.hostAddress));
-        if (lobby)
+        if (lobby && AlreadyInLobby(steam, lobby)) {
+            s->lobby = lobby;
+            OverrideLog("already in lobby %016llX (invite), used for session %p", lobby, s->handle);
+        } else if (lobby)
             SteamAsync(steam->mm->JoinLobby(CSteamID(lobby)), LobbyEnter_t::k_iCallback, sizeof(LobbyEnter_t),
                        OnLobbyEntered, SessionCtx(*s));
         else
             OverrideLog("!! client session for a host we did not find in a search");
+    }
+    if (!s->host) {
+        char kid[sizeof(XNKID) * 2 + 1];
+        Hex(&s->info.sessionID, sizeof(XNKID), kid);
+        OverrideLog("session %p: client of host account %lu, kid %s", s->handle, XnAddrAccountId(&s->info.hostAddress), kid);
     }
     OverrideLog("session %p created: flags %03lX, slots %lu+%lu, %s%s, type %lX mode %lX", s->handle, flags, maxPublic,
                 maxPrivate, s->host ? "host" : "client",
@@ -438,6 +490,7 @@ static DWORD WINAPI My_XSessionDelete(HANDLE h, XOVERLAPPED* ov) {
     Lock();
     Session* s = Find(h);
     if (s) {
+        OverrideLog("session %p deleted", h);
         LeaveLobbyOf(*s);
         s->memberCount = 0;
         s->started = false;
@@ -451,6 +504,7 @@ static DWORD WINAPI My_XSessionStart(HANDLE h, DWORD flags, XOVERLAPPED* ov) {
     Lock();
     Session* s = Find(h);
     if (s) {
+        OverrideLog("session %p started (flags %lX)", h, flags);
         s->started = true;
         if (s->host) PublishLobby(*s);
     }
@@ -463,6 +517,7 @@ static DWORD WINAPI My_XSessionEnd(HANDLE h, XOVERLAPPED* ov) {
     Lock();
     Session* s = Find(h);
     if (s) {
+        OverrideLog("session %p ended", h);
         s->started = false;
         if (s->host) PublishLobby(*s);
     }
@@ -478,6 +533,7 @@ static DWORD WINAPI My_XSessionModify(HANDLE h, DWORD flags, DWORD maxPublic, DW
         s->flags = (s->flags & (kCreateHost | kCreateUsesMatchmaking)) | (flags & ~(kCreateHost | kCreateUsesMatchmaking));
         s->publicSlots = maxPublic;
         s->privateSlots = maxPrivate;
+        OverrideLog("session %p modified: flags %03lX, slots %lu+%lu", h, s->flags, maxPublic, maxPrivate);
         if (s->host) PublishLobby(*s);
     }
     Unlock();
@@ -492,6 +548,7 @@ static DWORD WINAPI My_XSessionJoinLocal(HANDLE h, DWORD count, const DWORD* use
     if (s) {
         for (DWORD i = 0; i < count; i++)
             if (userIndexes && userIndexes[i] == 0) AddMember(*s, LocalXuid());
+        OverrideLog("session %p: we joined locally (%lu user(s))", h, count);
         if (s->host) PublishLobby(*s);
     }
     Unlock();
@@ -505,6 +562,7 @@ static DWORD WINAPI My_XSessionLeaveLocal(HANDLE h, DWORD count, const DWORD* us
     if (s) {
         for (DWORD i = 0; i < count; i++)
             if (userIndexes && userIndexes[i] == 0) RemoveMember(*s, LocalXuid());
+        OverrideLog("session %p: we left locally (%lu user(s))", h, count);
         if (s->host) PublishLobby(*s);
     }
     Unlock();
@@ -547,11 +605,21 @@ static DWORD WINAPI My_XSessionMigrateHost(HANDLE h, DWORD userIndex, XSESSION_I
     Lock();
     Session* s = Find(h);
     if (s && info) {
-        s->host = true;
-        FillLocalXnAddr(&s->info.hostAddress);
-        *info = s->info;
-        OverrideLog("session %p: we are the host now", h);
-        PublishLobby(*s);
+        if (userIndex == 0) {
+            // We are the new host: our address goes to the game, which sends it to the others.
+            s->host = true;
+            FillLocalXnAddr(&s->info.hostAddress);
+            *info = s->info;
+            OverrideLog("session %p: we are the host now", h);
+        } else {
+            // XUSER_INDEX_NONE (0xFE): someone else is the new host and *info is theirs (input, not output).
+            s->host = false;
+            s->info = *info;
+            NetAcceptPeer(XnAddrAccountId(&info->hostAddress));
+            OverrideLog("session %p: host moved to account %lu", h, XnAddrAccountId(&info->hostAddress));
+        }
+        s->publishPending = true;
+        if (s->host) PublishLobby(*s);
     }
     Unlock();
     UpdatePresence();
