@@ -199,83 +199,7 @@ static DWORD WINAPI My_XUserReadProfileSettingsByXuid(DWORD title, DWORD userInd
     return ERROR_NOT_FOUND;
 }
 
-// ---- voice: an IXHV2Engine that accepts talkers and never has data (as the stub's) ----
-
-typedef LONG HRESULT_T;
-static const HRESULT_T kInvalidArg = 0x80070057, kUnexpected = 0x8000FFFF, kPending = 0x8000000A;
-static const int kMaxTalkers = 32;
-
-class XHVEngine {
-public:
-    XHVEngine() : refs(1), talkerCount(0) { InitializeCriticalSection(&cs); }
-    virtual ULONG __stdcall AddRef() { return InterlockedIncrement(&refs); }
-    virtual ULONG __stdcall Release() {
-        LONG r = InterlockedDecrement(&refs);
-        if (!r) {
-            DeleteCriticalSection(&cs);
-            delete this;
-        }
-        return r;
-    }
-    virtual HRESULT_T __stdcall Lock(DWORD lockType) {
-        switch (lockType) {
-        case 0: EnterCriticalSection(&cs); return 0;
-        case 1: return TryEnterCriticalSection(&cs) ? 0 : kUnexpected;
-        case 2: LeaveCriticalSection(&cs); return 0;
-        default: return kInvalidArg;
-        }
-    }
-    virtual HRESULT_T __stdcall StartLocalProcessingModes(DWORD user, const DWORD* modes, DWORD count) { return modes ? kInvalidArg : 0; }
-    virtual HRESULT_T __stdcall StopLocalProcessingModes(DWORD user, const DWORD* modes, DWORD count) { return modes ? kInvalidArg : 0; }
-    virtual HRESULT_T __stdcall StartRemoteProcessingModes(XUID xuid, const DWORD* modes, DWORD count) { return Has(xuid) ? 0 : kUnexpected; }
-    virtual HRESULT_T __stdcall StopRemoteProcessingModes(XUID xuid, const DWORD* modes, DWORD count) { return Has(xuid) ? 0 : kUnexpected; }
-    virtual HRESULT_T __stdcall SetMaxDecodePackets(DWORD count) { return 0; }
-    virtual HRESULT_T __stdcall RegisterLocalTalker(DWORD user) { return user ? kInvalidArg : 0; }
-    virtual HRESULT_T __stdcall UnregisterLocalTalker(DWORD user) { return user ? kInvalidArg : 0; }
-    virtual HRESULT_T __stdcall RegisterRemoteTalker(XUID xuid, void* a, void* b, void* c) {
-        if (!Has(xuid) && talkerCount < kMaxTalkers) talkers[talkerCount++] = xuid;
-        return 0;
-    }
-    virtual HRESULT_T __stdcall UnregisterRemoteTalker(XUID xuid) {
-        for (int i = 0; i < talkerCount; i++)
-            if (talkers[i] == xuid) talkers[i] = talkers[--talkerCount];
-        return 0;
-    }
-    virtual HRESULT_T __stdcall GetRemoteTalkers(DWORD* count, XUID* xuids) {
-        if (!count || !xuids) return kInvalidArg;
-        *count = talkerCount;
-        memcpy(xuids, talkers, talkerCount * sizeof(XUID));
-        return 0;
-    }
-    virtual BOOL __stdcall IsHeadsetPresent(DWORD user) { return FALSE; }
-    virtual BOOL __stdcall IsLocalTalking(DWORD user) { return FALSE; }
-    virtual BOOL __stdcall IsRemoteTalking(XUID xuid) { return FALSE; }
-    virtual DWORD __stdcall GetDataReadyFlags() { return 0; }
-    virtual HRESULT_T __stdcall GetLocalChatData(DWORD user, BYTE* data, DWORD* size, DWORD* packets) {
-        *size = 0;
-        *packets = 0;
-        return kPending;
-    }
-    virtual HRESULT_T __stdcall SetPlaybackPriority(XUID xuid, DWORD user, DWORD priority) { return 0; }
-    virtual HRESULT_T __stdcall SubmitIncomingChatData(XUID xuid, const BYTE* data, DWORD* size) { return 0; }
-
-private:
-    bool Has(XUID xuid) const {
-        for (int i = 0; i < talkerCount; i++)
-            if (talkers[i] == xuid) return true;
-        return false;
-    }
-    volatile LONG refs;
-    CRITICAL_SECTION cs;
-    int talkerCount;
-    XUID talkers[kMaxTalkers];
-};
-
-static HRESULT_T WINAPI My_XHVCreateEngine(const void* params, HANDLE* worker, XHVEngine** engine) {
-    if (!engine) return kInvalidArg;
-    *engine = new XHVEngine();
-    return 0;
-}
+// Voice (XHVCreateEngine) lives in voice.cpp.
 
 const Override kCompatOverrides[] = {
     {3, (void*)My_XSocketCreate},
@@ -298,7 +222,6 @@ const Override kCompatOverrides[] = {
     {5001, (void*)My_XLiveInput},
     {5002, (void*)My_XLiveRender},
     {5007, (void*)My_XLiveOnResetDevice},
-    {5008, (void*)My_XHVCreateEngine},
     {5030, (void*)My_XLivePreTranslateMessage},
     {5034, (void*)My_XLiveProtectData},
     {5035, (void*)My_XLiveProtectData},  // unprotect is the same copy

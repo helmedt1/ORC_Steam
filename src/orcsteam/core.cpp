@@ -1,4 +1,4 @@
-// orcsteam: a stand-alone xlive.dll for Resident Evil: Operation Raccoon City that replaces
+﻿// orcsteam: a stand-alone xlive.dll for Resident Evil: Operation Raccoon City that replaces
 // Games for Windows Live with Steam (identity, lobbies, invites, P2P traffic).
 //
 // Every ordinal the game imports goes through a tiny stub (push ordinal; jmp CommonEntry) to our
@@ -12,7 +12,7 @@
 #include "names.h"
 #include "overrides.h"
 
-static const char kVersion[] = "1.2";
+static const char kVersion[] = "1.4";
 static const LONG kVerboseCalls = 40;  // traced lines per ordinal, then only counted
 static const int kMaxDepth = 64;       // per-thread nesting of traced calls
 static const DWORD kSummaryEveryMs = 15000;
@@ -297,6 +297,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         ApplyOverrides(kNetOverrides, kNetOverrideCount);
         ApplyOverrides(kInviteOverrides, kInviteOverrideCount);
         ApplyOverrides(kCompatOverrides, kCompatOverrideCount);
+        ApplyOverrides(kVoiceOverrides, kVoiceOverrideCount);
 
         char path[MAX_PATH];
         ModuleDir(inst, path, MAX_PATH);

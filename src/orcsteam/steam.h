@@ -17,11 +17,25 @@ struct CSteamID {
     static CSteamID Individual(DWORD accountId) { return CSteamID(0x0110000100000000ull | accountId); }
 };
 
+enum { kVoiceOK = 0, kVoiceNotRecording = 2, kVoiceNoData = 3, kVoiceBufferTooSmall = 4 };
+
 class ISteamUser016 {
 public:
     virtual int GetHSteamUser() = 0;
     virtual bool BLoggedOn() = 0;
     virtual CSteamID GetSteamID() = 0;
+    virtual int InitiateGameConnection(void*, int, CSteamID, DWORD, WORD, bool) = 0;
+    virtual void TerminateGameConnection(DWORD, WORD) = 0;
+    virtual void TrackAppUsageEvent(uint64, int, const char*) = 0;
+    virtual bool GetUserDataFolder(char*, int) = 0;
+    virtual void StartVoiceRecording() = 0;                                                      // 7
+    virtual void StopVoiceRecording() = 0;                                                       // 8
+    virtual int GetAvailableVoice(DWORD* cbCompressed, DWORD* cbUncompressed, DWORD rate) = 0;   // 9
+    virtual int GetVoice(bool wantCompressed, void* dest, DWORD cbDest, DWORD* written, bool wantUncompressed,
+                         void* destRaw, DWORD cbDestRaw, DWORD* writtenRaw, DWORD rate) = 0;     // 10
+    virtual int DecompressVoice(const void* data, DWORD cb, void* dest, DWORD cbDest, DWORD* written,
+                                DWORD rate) = 0;                                                 // 11
+    virtual DWORD GetVoiceOptimalSampleRate() = 0;                                               // 12 (checked live: 24000)
 };
 
 enum { kFriendFlagImmediate = 0x04 };

@@ -134,8 +134,9 @@ static DWORD WINAPI My_XNetGetTitleXnAddr(XNADDR* addr) {
     return kXnAddrOnlineFlags;
 }
 
-// Stop our Steam pump before the game shuts Steam down.
+// Stop our voice thread and Steam pump before the game shuts Steam down.
 static DWORD WINAPI My_XLiveUninitialize() {
+    VoiceShutdown();
     SteamStopPump();
     return 0;
 }

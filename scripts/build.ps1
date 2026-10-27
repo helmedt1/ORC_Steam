@@ -16,9 +16,12 @@ $ords | ForEach-Object { "X($_)" } | Set-Content "$out\ordinals.inc" -Encoding a
 
 . "$root\tools\env.ps1"
 $devcmd = "$(Get-VsPath)\Common7\Tools\VsDevCmd.bat"
-$sources = 'core', 'overrides', 'sessions', 'steam', 'net', 'invites', 'compat' | ForEach-Object { "`"$src\$_.cpp`"" }
+$sources = 'core', 'overrides', 'sessions', 'steam', 'net', 'invites', 'compat', 'voice', 'spatial' | ForEach-Object { "`"$src\$_.cpp`"" }
+# MinHook (BSD, third_party\minhook) for the Wwise hooks in spatial.cpp
+$mh = "$root\third_party\minhook\src"
+$sources += 'hook.c', 'buffer.c', 'trampoline.c', 'hde\hde32.c' | ForEach-Object { "`"$mh\$_`"" }
 $rc = "rc /nologo /fo `"$out\orcsteam.res`" `"$src\orcsteam.rc`""
-$cl = "cl /nologo /O2 /MT /W3 /EHs-c- /I`"$out`" /Fo`"$out\\`" /Fe`"$out\xlive.dll`" $($sources -join ' ') /LD /link ws2_32.lib `"$out\orcsteam.res`" /DEF:`"$out\xlive.def`" /PDB:`"$out\xlive.pdb`" /DEBUG /INCREMENTAL:NO /OPT:REF"
+$cl = "cl /nologo /O2 /MT /W3 /EHs-c- /I`"$out`" /Fo`"$out\\`" /Fe`"$out\xlive.dll`" $($sources -join ' ') /LD /link ws2_32.lib ole32.lib user32.lib `"$out\orcsteam.res`" /DEF:`"$out\xlive.def`" /PDB:`"$out\xlive.pdb`" /DEBUG /INCREMENTAL:NO /OPT:REF"
 cmd /c "`"$devcmd`" -arch=x86 -host_arch=x64 -no_logo 2>nul && $rc && $cl"
 if ($LASTEXITCODE -ne 0) { throw "build failed ($LASTEXITCODE)" }
 Write-Host "built $out\xlive.dll ($($ords.Count) ordinals)"

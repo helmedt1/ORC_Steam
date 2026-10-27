@@ -15,13 +15,17 @@ every GFWL function the game imports (82 of them) and backs the online ones with
 | Presence | Steam rich presence player group: lobby mates are grouped in the friends list |
 | Lobby privacy | Public by default; `lobby=friends` in `orcsteam.ini` makes hosted games friends/invite-only |
 | Saves (`XLiveProtectData`) | Stored as-is, byte-compatible with the community stub used so far |
-| Voice, leaderboards, achievements | Accepted and dropped |
+| Voice (`XHV`) | A real engine behind the game's own voice chat: Steam voice (`GetVoice`/`DecompressVoice`) carried in the game's voice messages, played with XAudio2; `voice`, `voice_key`, `voice_volume` in `orcsteam.ini` |
+| Spatial voice | Each voice message also carries the talker's character position and acoustic environment, read from the game's Wwise (the exe exports it); the listener applies distance volume, panning, XAudio2 reverb per environment and a band-passed "radio" beyond `voice_far` |
+| Leaderboards, achievements | Accepted and dropped |
 
 Players see this as: install, start the game from Steam, create or find an online game, or invite Steam friends.
 User instructions: [`dist/README.txt`](dist/README.txt) (English), [`dist/ПРОЧТИ.txt`](dist/ПРОЧТИ.txt) (Russian).
 
-**Status (1.2):** co-op campaign with two and four players tested end to end (search, invites, join from the
-friends list, start from an invite, host migration). Not tested yet: versus modes.
+**Status (1.4):** co-op campaign with two and four players tested end to end (search, invites, join from the
+friends list, start from an invite, host migration). Voice chat (new in 1.3) and spatial voice (1.4) are
+beta: tested with two players, the last changes (volume levelling, split chunks) not yet in a real game.
+Not tested yet: versus modes.
 
 ## How it works
 
@@ -33,8 +37,9 @@ friends list, start from an invite, host migration). Not tested yet: versus mode
   `SteamUtils005`, `SteamFriends009`). Async calls are polled on a pump thread; no newer SDK is needed.
 - `sessions.cpp` maps sessions to lobbies, `net.cpp` moves traffic (outgoing datagrams to 10.x.y.z go to
   `SendP2PPacket`; incoming ones are re-injected into the game's socket over loopback with a small header that
-  our `recvfrom` strips), `invites.cpp` handles notifications, invites and the friends list, `compat.cpp` the
-  rest (sockets, saves, profile defaults, a stub voice engine).
+  our `recvfrom` strips), `invites.cpp` handles notifications, invites and the friends list, `voice.cpp` the
+  voice engine, `spatial.cpp` the Wwise hooks that tell where characters and the camera are and which acoustic
+  environment they are in, `compat.cpp` the rest (sockets, saves, profile defaults).
 
 Facts learned from the game binary that the implementation depends on (see `NOTES.md`, in Russian):
 
@@ -59,3 +64,6 @@ part of this repository) to generate the export list.
 ## License
 
 MIT, see [`LICENSE`](LICENSE). Not affiliated with Capcom, Microsoft or Valve. You need your own copy of the game.
+
+Includes [MinHook](https://github.com/TsudaKageyu/minhook) 1.3.4 (BSD 2-clause, [`third_party/minhook/LICENSE.txt`](third_party/minhook/LICENSE.txt)),
+for the Wwise hooks in `spatial.cpp`.

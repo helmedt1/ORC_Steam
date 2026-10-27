@@ -99,6 +99,7 @@ static DWORD WINAPI PumpThread(LPVOID) {
         if (now - lastSessions >= kSessionsPumpMs) {
             SessionsPump(g_api);
             InvitesPump(g_api);
+            SpatialTick();
             lastSessions = now;
         }
         Sleep(1);

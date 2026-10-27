@@ -35,6 +35,20 @@ unsigned long long HostedLobby();   // Steam lobby of the session we host, 0 if 
 bool LobbyInUse(unsigned long long lobby);
 void RegisterFoundLobby(const XNKID& kid, unsigned long long lobby);
 
+// Voice chat behind the game's voice system (voice.cpp)
+extern const Override kVoiceOverrides[];
+extern const int kVoiceOverrideCount;
+void VoiceShutdown();  // stop the voice thread before Steam goes away
+
+// Where things are, from the game's Wwise sound engine (spatial.cpp). Positions are in Wwise space.
+static const int kSpatialEnvs = 2;
+struct SpatialPoint { float pos[3]; int envCount; unsigned long envId[kSpatialEnvs]; float envValue[kSpatialEnvs]; };
+struct SpatialFrame { float pos[3], front[3], top[3]; };
+void SpatialTick();                           // pump thread, every 250 ms: hooks, diag report
+bool SpatialListener(SpatialFrame* out);      // the camera; false in menus
+bool SpatialLocalCharacter(SpatialPoint* out);  // our character and its acoustic environments
+const char* SpatialName(unsigned long id);    // the text the game hashed into this Wwise ID, if seen
+
 // Invites, friends, notifications (invites.cpp)
 extern const Override kInviteOverrides[];
 extern const int kInviteOverrideCount;

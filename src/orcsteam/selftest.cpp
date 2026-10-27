@@ -312,7 +312,8 @@ static int TestCompat(HMODULE proxy) {
     printf("compat: signin notification %08lX param %lu -> %s\n", gotId, (DWORD)gotParam, noteOk ? "ok" : "BAD");
     if (!noteOk) fails++;
 
-    // Voice engine: a COM-style object; talkers tracked, never any chat data.
+    // Voice engine: a COM-style object; talkers tracked, no chat data without a microphone, incoming data
+    // marks the talker as talking unless the game muted it (playback priority NEVER).
     typedef LONG(WINAPI * FnHv)(const void*, HANDLE*, void***);
     void** engine = nullptr;
     LONG hr = ((FnHv)Ord(proxy, 5008))(nullptr, nullptr, &engine);
@@ -320,17 +321,33 @@ static int TestCompat(HMODULE proxy) {
     typedef LONG(__stdcall * FnGetTalkers)(void*, DWORD*, unsigned long long*);
     typedef LONG(__stdcall * FnChat)(void*, DWORD, BYTE*, DWORD*, DWORD*);
     typedef ULONG(__stdcall * FnRelease)(void*);
+    typedef BOOL(__stdcall * FnHeadset)(void*, DWORD);
+    typedef BOOL(__stdcall * FnRemoteTalking)(void*, unsigned long long);
+    typedef LONG(__stdcall * FnPriority)(void*, unsigned long long, DWORD, DWORD);
+    typedef LONG(__stdcall * FnSubmit)(void*, unsigned long long, const BYTE*, DWORD*);
     void** vt = engine ? (void**)*engine : nullptr;
     bool voiceOk = false;
     if (vt) {
-        ((FnRegRemote)vt[10])(engine, 0x0009000012345678ull, nullptr, nullptr, nullptr);
+        const unsigned long long a = 0x0009000012345678ull, b = 0x0009000012345679ull;
+        ((FnRegRemote)vt[10])(engine, a, nullptr, nullptr, nullptr);
+        ((FnRegRemote)vt[10])(engine, b, nullptr, nullptr, nullptr);
         DWORD count = 0, sz = 9, packets = 9;
         unsigned long long talkers[4] = {};
         ((FnGetTalkers)vt[12])(engine, &count, talkers);
         LONG chat = ((FnChat)vt[17])(engine, 0, nullptr, &sz, &packets);
+        BOOL headset = ((FnHeadset)vt[13])(engine, 0);
+        ((FnPriority)vt[18])(engine, b, 0, 0xFFFFFFFF);  // mute b
+        const BYTE blob[] = {0x56, 1, 3, 0, 1, 2, 3};    // magic, version, one 3-byte chunk
+        DWORD blobSize = sizeof(blob);
+        ((FnSubmit)vt[19])(engine, a, blob, &blobSize);
+        blobSize = sizeof(blob);
+        ((FnSubmit)vt[19])(engine, b, blob, &blobSize);
+        BOOL talkingA = ((FnRemoteTalking)vt[15])(engine, a), talkingB = ((FnRemoteTalking)vt[15])(engine, b);
         ULONG refs = ((FnRelease)vt[1])(engine);
-        voiceOk = hr == 0 && count == 1 && talkers[0] == 0x0009000012345678ull && chat == (LONG)0x8000000A && !sz &&
-                  !packets && refs == 0;
+        printf("compat: voice talkers %lu, chat %08lX, headset %d, talking %d/%d (b muted), refs %lu\n", count,
+               (DWORD)chat, headset, talkingA, talkingB, refs);
+        voiceOk = hr == 0 && count == 2 && talkers[0] == a && chat == (LONG)0x8000000A && !sz && !packets && headset &&
+                  talkingA && !talkingB && refs == 0;
     }
     printf("compat: voice engine -> %s\n", voiceOk ? "ok" : "BAD");
     if (!voiceOk) fails++;
