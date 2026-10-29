@@ -15,7 +15,7 @@
 // (default: open mic with Steam's voice detection); voice_volume=<0..400> is a percentage for all voices
 // (on top of the automatic levelling);
 // voice_spatial=0 plays every voice flat (as 1.3); voice_near=<m> full volume up to here (5);
-// voice_far=<m> radio from here (40); voice_radio=0 lets far voices fade out instead; voice_reverb=0 no reverb.
+// voice_far=<m> radio from here (20); voice_radio=0 lets far voices fade out instead; voice_reverb=0 no reverb.
 
 #define WIN32_LEAN_AND_MEAN
 #include "xlive_types.h"
@@ -65,7 +65,7 @@ static const DWORD kSpatialApplyMs = 50;
 
 // Placement.
 static const float kMinDistanceVolume = 0.08f;  // nearer than voice_far a voice never gets quieter than this
-static const float kRadioVolume = 0.6f;
+static const float kRadioVolume = 1.3f;  // above 1: the band-pass takes away much of the voice's loudness
 static const float kRadioHysteresis = 0.85f;  // back from radio below voice_far * this
 static const float kRadioFrequency = 1800.0f, kRadioOneOverQ = 1.0f;
 static const float kPanFloor = 0.25f;  // the far ear still hears a little
@@ -78,7 +78,7 @@ static const DWORD kFragHeader = 7, kFragData = 300, kMaxFrags = 8;
 
 // Steam's voice comes out quiet next to the game: each voice is levelled to about this RMS (of 32767),
 // boosted at most kMaxGain times, and never pushed past kPeakLimit.
-static const float kTargetRms = 3500.0f, kMaxGain = 6.0f, kPeakLimit = 30000.0f, kSpeechRms = 150.0f;
+static const float kTargetRms = 5000.0f, kMaxGain = 10.0f, kPeakLimit = 30000.0f, kSpeechRms = 150.0f;
 static const float kGainRise = 0.25f, kGainFall = 0.7f;  // slow to boost, quick to back off a loud voice
 
 // Playback (as in ERVoiceChat): a short prebuffer at the start of a phrase, and no growing delay.
@@ -95,7 +95,7 @@ struct InBlob { XUID from; WORD len; BYTE data[kInBlobMax]; };  // len 0: the ta
 static SRWLOCK g_lock = SRWLOCK_INIT;
 static bool g_settingsRead, g_enabled, g_spatial, g_radio, g_reverbOn;
 static int g_key;  // virtual key for push-to-talk, 0 = open mic
-static float g_volume = 1.0f, g_near = 5.0f, g_far = 40.0f;
+static float g_volume = 1.0f, g_near = 5.0f, g_far = 20.0f;
 static volatile LONG g_localActive;
 static volatile LONG g_lastLocalTalk;
 static Talker g_talkers[kMaxTalkers];
@@ -151,7 +151,7 @@ static void ReadSettings() {
     int volume = OrcsteamIniInt("voice_volume", 100);
     g_volume = (volume < 0 ? 0 : volume > 400 ? 400 : volume) / 100.0f;
     g_spatial = OrcsteamIniInt("voice_spatial", 1) != 0;
-    int nearM = OrcsteamIniInt("voice_near", 5), farM = OrcsteamIniInt("voice_far", 40);
+    int nearM = OrcsteamIniInt("voice_near", 5), farM = OrcsteamIniInt("voice_far", 20);
     g_near = (float)(nearM < 1 ? 1 : nearM > 100 ? 100 : nearM);
     g_far = (float)(farM < nearM + 1 ? nearM + 1 : farM > 500 ? 500 : farM);
     g_radio = OrcsteamIniInt("voice_radio", 1) != 0;

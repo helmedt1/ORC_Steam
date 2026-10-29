@@ -12,7 +12,7 @@
 #include "names.h"
 #include "overrides.h"
 
-static const char kVersion[] = "1.4";
+static const char kVersion[] = "1.5";
 static const LONG kVerboseCalls = 40;  // traced lines per ordinal, then only counted
 static const int kMaxDepth = 64;       // per-thread nesting of traced calls
 static const DWORD kSummaryEveryMs = 15000;
@@ -309,6 +309,8 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         Log("orcsteam %s%s%s. exe: %s", kVersion, g_trace ? " (trace on)" : "", g_diag ? " (diag on)" : "", exe);
         for (OrdInfo& oi : g_ords)
             if (oi.target == (void*)MissingTarget) Log("!! no implementation for #%u %s", oi.ord, oi.name);
+        UnlockModes();
+        GameTweaksInstall();
         AddVectoredExceptionHandler(1, CrashLogger);
     } else if (reason == DLL_PROCESS_DETACH) {
         if (g_trace) WriteSummary("exit");

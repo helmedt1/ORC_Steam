@@ -1,4 +1,4 @@
-orcsteam 1.4 - online play for Resident Evil: Operation Raccoon City over Steam
+orcsteam 1.5 - online play for Resident Evil: Operation Raccoon City over Steam
 ==============================================================================
 
 The PC version was built on Games for Windows Live, which is gone. orcsteam is a
@@ -40,9 +40,17 @@ Only players with orcsteam 1.3 or newer hear each other.
 
 Spatial voice (1.4): a teammate sounds from where their character stands - loud nearby,
 quieter far away, from the left or right, with the echo of a room, tunnel or sewer.
-Beyond 40 metres their voice turns into a "radio": a steady level and a radio-like sound,
+Beyond 20 metres their voice turns into a "radio": a steady level and a radio-like sound,
 so you stay in touch anywhere on the map. Only players with orcsteam 1.4 sound spatial;
 players with 1.3 sound as before, without distance.
+
+
+NEMESIS MODE (experimental)
+In 2012 the Nemesis versus mode was an Xbox 360 DLC, but the PC game already has the
+mode, its six maps and the playable Nemesis on disk - only the menu hides it.
+nemesis=1 in orcsteam.ini (see SETTINGS) shows it in the versus menu. Every player in
+the game needs nemesis=1. Played with 4 players for a few minutes; longer games and
+all six maps are not tested yet - reports welcome.
 
 
 SETTINGS (optional)
@@ -61,18 +69,32 @@ Create orcsteam.ini next to xlive.dll in the game folder:
   Quiet voices are already levelled automatically; this comes on top.
 - voice_spatial=0: no spatial voice - everyone sounds the same, as in 1.3.
 - voice_near=5: up to how many metres a voice is at full volume (default 5).
-- voice_far=40: from which distance the radio takes over (default 40).
+- voice_far=20: from which distance the radio takes over (default 20).
 - voice_radio=0: no radio - far teammates fade out completely.
 - voice_reverb=0: no echo.
+- skip_intro=1: skip the logos and the NVIDIA movie at startup, straight to the press-start screen.
+- fov=120: camera field of view in percent of the game's own (50-200, default 100). 120 = 20% wider.
+- nemesis=1: the Nemesis versus mode (experimental, see NEMESIS MODE).
 
 
 TESTED
 Co-op campaign with 2 and 4 players: search, invites, "Join game", start from an
-invite, host change. Not tested yet: versus modes.
-Voice chat and spatial voice are beta: tested with two players; the latest changes
-(volume levelling, phrase starts) have not been tried in a game yet. If something sounds
+invite, host change. Nemesis mode with 4 players (a short game). Not tested yet: the
+other versus modes.
+Voice chat and spatial voice are beta: tested with 2 and 4 players. If something sounds
 wrong, please send orcsteam.log (preferably with diag=1 in orcsteam.ini) and describe it.
 
+Known issue: after a host change, a player who left cannot rejoin the same mission
+through "Join game"; they get in once the new host starts the next mission.
+
+
+WHAT'S NEW IN 1.5
+- Nemesis mode (experimental): nemesis=1 shows the Xbox-only versus mode, see NEMESIS MODE.
+- skip_intro=1: no logos and NVIDIA movie at startup.
+- fov=<percent>: a wider (or narrower) camera field of view.
+- Voices are louder: quiet voices are levelled higher, so music drowns them out less.
+- The radio starts at 20 m instead of 40 (the maps are small) and is louder.
+- Fixed a crash with diag=1 when a character stood in several sound zones with long names.
 
 WHAT'S NEW IN 1.4
 - Spatial voice: volume by distance, direction, echo for where the talker stands, and a radio

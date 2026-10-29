@@ -100,6 +100,7 @@ static DWORD WINAPI PumpThread(LPVOID) {
             SessionsPump(g_api);
             InvitesPump(g_api);
             SpatialTick();
+            GameTweaksTick();
             lastSessions = now;
         }
         Sleep(1);

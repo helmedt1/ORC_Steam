@@ -49,6 +49,13 @@ bool SpatialListener(SpatialFrame* out);      // the camera; false in menus
 bool SpatialLocalCharacter(SpatialPoint* out);  // our character and its acoustic environments
 const char* SpatialName(unsigned long id);    // the text the game hashed into this Wwise ID, if seen
 
+// Game patches by orcsteam.ini (unlock.cpp)
+void UnlockModes();  // nemesis=1: the Xbox-only Nemesis mode in the versus menu
+
+// Game options by orcsteam.ini (tweaks.cpp): skip_intro=1, fov=<percent>
+void GameTweaksInstall();  // DllMain, before the exe runs
+void GameTweaksTick();     // pump thread, every 250 ms
+
 // Invites, friends, notifications (invites.cpp)
 extern const Override kInviteOverrides[];
 extern const int kInviteOverrideCount;

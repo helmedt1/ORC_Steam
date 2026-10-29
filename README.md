@@ -19,13 +19,17 @@ every GFWL function the game imports (82 of them) and backs the online ones with
 | Spatial voice | Each voice message also carries the talker's character position and acoustic environment, read from the game's Wwise (the exe exports it); the listener applies distance volume, panning, XAudio2 reverb per environment and a band-passed "radio" beyond `voice_far` |
 | Leaderboards, achievements | Accepted and dropped |
 
+Extras, off by default (`orcsteam.ini`): `nemesis=1` shows the Nemesis versus mode (Xbox 360 only DLC in 2012;
+the PC exe and `dlc\pack1` have the mode and its maps, only the menu's DLC pack check hides it; experimental),
+`skip_intro=1` skips the startup logos and movie, `fov=<percent>` scales every camera's field of view.
+
 Players see this as: install, start the game from Steam, create or find an online game, or invite Steam friends.
 User instructions: [`dist/README.txt`](dist/README.txt) (English), [`dist/ПРОЧТИ.txt`](dist/ПРОЧТИ.txt) (Russian).
 
-**Status (1.4):** co-op campaign with two and four players tested end to end (search, invites, join from the
+**Status (1.5):** co-op campaign with two and four players tested end to end (search, invites, join from the
 friends list, start from an invite, host migration). Voice chat (new in 1.3) and spatial voice (1.4) are
-beta: tested with two players, the last changes (volume levelling, split chunks) not yet in a real game.
-Not tested yet: versus modes.
+beta: tested with two and four players. Nemesis mode: a short game with four players. Not tested yet: the
+other versus modes. Known issue: after a host change, a player who left cannot rejoin the same mission.
 
 ## How it works
 
@@ -39,7 +43,8 @@ Not tested yet: versus modes.
   `SendP2PPacket`; incoming ones are re-injected into the game's socket over loopback with a small header that
   our `recvfrom` strips), `invites.cpp` handles notifications, invites and the friends list, `voice.cpp` the
   voice engine, `spatial.cpp` the Wwise hooks that tell where characters and the camera are and which acoustic
-  environment they are in, `compat.cpp` the rest (sockets, saves, profile defaults).
+  environment they are in, `unlock.cpp` the Nemesis menu gate, `tweaks.cpp` skip_intro and fov,
+  `compat.cpp` the rest (sockets, saves, profile defaults).
 
 Facts learned from the game binary that the implementation depends on (see `NOTES.md`, in Russian):
 

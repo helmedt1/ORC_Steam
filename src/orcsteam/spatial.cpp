@@ -229,7 +229,8 @@ static void Install() {
     GetModuleFileNameA(nullptr, exe, MAX_PATH);
     const char* file = strrchr(exe, '\\');
     if (_stricmp(file ? file + 1 : exe, "RaccoonCity.exe") != 0) return;  // self-test: no game to look into
-    if (MH_Initialize() != MH_OK) {
+    MH_STATUS init = MH_Initialize();  // tweaks.cpp may have done it already
+    if (init != MH_OK && init != MH_ERROR_ALREADY_INITIALIZED) {
         OverrideLog("!! spatial: MinHook init failed");
         return;
     }
@@ -346,13 +347,14 @@ static void Report() {
                 haveMe ? "found" : "not found");
     for (int i = 0; i < nearCount; i++) {
         const Near& nr = nearest[i];
-        char env[160] = "";
+        // Truncating, never the _s overflow handler: that ends the game on the spot (four long zone names did).
+        char env[kMaxEnv * 64] = "";
         for (int e = 0; e < nr.envCount; e++) {
             char item[64];
             const char* name = SpatialName(nr.env[e].envId);
-            sprintf_s(item, " %08lX%s%s%s=%.2f", nr.env[e].envId, name ? " '" : "", name ? name : "", name ? "'" : "",
-                      nr.env[e].value);
-            strcat_s(env, item);
+            _snprintf_s(item, _TRUNCATE, " %08lX%s%s%s=%.2f", nr.env[e].envId, name ? " '" : "", name ? name : "",
+                        name ? "'" : "", nr.env[e].value);
+            strncat_s(env, item, _TRUNCATE);
         }
         OverrideLog("spatial:   obj %08lX '%s' %.1f m, %u pos%s%s%s", nr.id, nr.name, nr.d, nr.posCount,
                     nr.envCount ? ", env" : "", env, nr.envChanged ? " (changed)" : "");

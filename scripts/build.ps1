@@ -16,7 +16,7 @@ $ords | ForEach-Object { "X($_)" } | Set-Content "$out\ordinals.inc" -Encoding a
 
 . "$root\tools\env.ps1"
 $devcmd = "$(Get-VsPath)\Common7\Tools\VsDevCmd.bat"
-$sources = 'core', 'overrides', 'sessions', 'steam', 'net', 'invites', 'compat', 'voice', 'spatial' | ForEach-Object { "`"$src\$_.cpp`"" }
+$sources = 'core', 'overrides', 'sessions', 'steam', 'net', 'invites', 'compat', 'voice', 'spatial', 'unlock', 'tweaks' | ForEach-Object { "`"$src\$_.cpp`"" }
 # MinHook (BSD, third_party\minhook) for the Wwise hooks in spatial.cpp
 $mh = "$root\third_party\minhook\src"
 $sources += 'hook.c', 'buffer.c', 'trampoline.c', 'hde\hde32.c' | ForEach-Object { "`"$mh\$_`"" }
